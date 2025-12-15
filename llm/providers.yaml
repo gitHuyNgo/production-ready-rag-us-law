@@ -1,0 +1,20 @@
+default: openai
+
+providers:
+  openai:
+    type: openai
+    model: gpt-5.1
+    temperature: 0.2
+    max_tokens: 1024
+
+  gemini:
+    type: gemini
+    model: gemini-2.5-pro
+    temperature: 0.2
+    max_output_tokens: 1024
+
+  claude:
+    type: anthropic
+    model: claude-4.5-haiku
+    temperature: 0.2
+    max_output_tokens: 1024
