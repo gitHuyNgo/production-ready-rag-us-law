@@ -5,6 +5,7 @@ FlagEmbedding
 
 # HTTP Server
 fastapi[standard]
+uvicorn
 
 # Shared
 pydantic
