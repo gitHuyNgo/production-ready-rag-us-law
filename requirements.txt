@@ -1,2 +1,10 @@
+# RAG
+weaviate-client
+rank-bm25
+FlagEmbedding
+
+# HTTP Server
 fastapi[standard]
+
+# Shared
 pydantic
