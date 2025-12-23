@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import List
 from enum import Enum
 
-class Role(Enum):
+class Role(str, Enum):
     user = "user"
     agent = "agent"
 
