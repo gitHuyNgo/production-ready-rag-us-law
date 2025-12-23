@@ -2,6 +2,8 @@
 weaviate-client
 rank-bm25
 FlagEmbedding
+docling
+llama-index
 
 # HTTP Server
 fastapi[standard]
