@@ -11,3 +11,4 @@ uvicorn
 
 # Shared
 pydantic
+dotenv
