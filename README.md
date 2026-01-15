@@ -17,6 +17,10 @@ pip install -r requirements.txt # or pip3
 ##### Run project
 
 ```bash
+docker compose up -d
+```
+
+```bash
 uvicorn src.rag-controller.app.main:app --reload
 ```
 
