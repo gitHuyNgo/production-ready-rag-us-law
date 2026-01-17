@@ -17,30 +17,32 @@ def _load_prompt(path: Path) -> str:
         raise FileNotFoundError(f"Prompt file not found: {path}")
     return path.read_text(encoding="utf-8").strip()
 
+
 def init_llm():
-    return OpenAIResponses(
-        model="gpt-5.1",
-        api_key=OPENAI_API_KEY
-    )
+    return OpenAIResponses(model="gpt-5.1", api_key=OPENAI_API_KEY)
+
 
 def ask_llm(llm, query: str, context: str):
-    # system_prompt = _load_prompt(SYSTEM_PROMPT_PATH)
-    # answer_style = _load_prompt(ANSWER_STYLE_PATH)
+    system_prompt = _load_prompt(SYSTEM_PROMPT_PATH)
+    answer_style = _load_prompt(ANSWER_STYLE_PATH)
+    user_prompt = (f"QUESTION:\n{query}\n\n" f"CONTEXT:\n{context}\n\n") + answer_style
 
-    # user_prompt = answer_style.format(
-    #     question=query,
-    #     context=context,
-    # )
+    # messages = [
+    #     ChatMessage(
+    #         role="system",
+    #         content="You are an assistant that helps to answer questions based on the provided context",
+    #     ),
+    #     ChatMessage(
+    #         role="user",
+    #         content=f"Answer the following question using the provided context.\n\nQuestion: {query}\n\nContext:\n{context}",
+    #     ),
+    # ]
 
     messages = [
-        ChatMessage(
-            role="system",
-            content="You are an assistant that helps to answer questions based on the provided context",
-        ),
-        ChatMessage(
-            role="user",
-            content=f"Answer the following question using the provided context.\n\nQuestion: {query}\n\nContext:\n{context}",
-        ),
+        ChatMessage(role="system", content=system_prompt),
+        ChatMessage(role="user", content=user_prompt),
     ]
 
-    return llm.chat(messages)
+    resp = llm.chat(messages)
+    resp.message.content = "\n" + resp.message.content
+    return resp
