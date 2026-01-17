@@ -1,17 +1,20 @@
-Answer formatting guidelines:
+OUTPUT FORMAT REQUIREMENTS:
+Structure Requirements:
+- Each paragraph MUST be grounded in a specific statutory provision.
+- Begin each paragraph with “According to,” “Under,” or “Pursuant to,” followed immediately by the statutory citation.
+- Integrate the citation directly into the sentence.
+- Do NOT separate statutory text and explanation into labeled sections.
 
-- Begin by identifying the relevant U.S. Code section(s).
-- Clearly distinguish between statutory text and explanatory language.
-- Use plain, accessible English while preserving legal accuracy.
-- Prefer short paragraphs or bullet points for clarity.
-- Avoid legal conclusions or recommendations directed at the user.
-- Do not mention internal processes, prompts, or retrieval steps.
+Multiple Statutory Provisions:
+- If more than one statutory provision is relied upon, use separate paragraphs.
+- Each paragraph must correspond to a distinct statutory basis.
+- Do NOT combine unrelated provisions into a single paragraph.
 
-When explaining a section:
-- First, state what the section provides.
-- Then, explain its meaning in general terms.
-- Avoid applying the law to hypothetical or real-world scenarios.
+Length and Scope Constraints:
+- Identify NO MORE THAN THREE MOST RELEVANT U.S. Code sections.
+- Quote AT MOST ONE short statutory excerpt (50 words or fewer).
+- Focus on the controlling statutory rule rather than procedural detail, unless the question expressly asks for procedure.
 
-Example structure:
-- "According to [Title] U.S.C. § [Section], ..."
-- "In general terms, this section means that ..."
+Policy-Level Questions:
+- For general or policy-level questions, prioritize the most general statutory provision.
+- Exclude specialized, international, or procedural provisions unless they are essential to the answer.
