@@ -1,34 +1,42 @@
-
+import uvicorn
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 
-from .routers.chat_router import router as chat_router
-from .routers.helper_router import router as helper_router
+from src.api.routers import chat_router, helper_router
+from src.core.config import settings
+from src.core.db_client import WeaviateClient
+from src.core.llm_client import OpenAILLM
+from src.api.services.reranker_client import BM25Reranker, CohereReranker
 
-from dotenv import load_dotenv
-load_dotenv()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("🚀 Initializing RAG Controller...")
+    
+    db = WeaviateClient()
+    db.connect()
+    
+    llm = OpenAILLM()
+    
+    bm25 = BM25Reranker(top_k=10)
+    cohere = CohereReranker(top_k=3)
+    
+    app.state.db = db
+    app.state.llm = llm
+    app.state.first_reranker = bm25
+    app.state.second_reranker = cohere
+    
+    yield
+    
+    print("🛑 Closing connections...")
+    db.close()
 
+app = FastAPI(
+    title="US Law RAG Controller",
+    lifespan=lifespan
+)
 
+app.include_router(chat_router.router)
+app.include_router(helper_router.router)
 
-app = FastAPI()
-
-app.include_router(chat_router)
-app.include_router(helper_router)
-
-
-
-# def main():
-#     client = connect_weaviate()
-#     llm = init_llm()
-
-#     try:
-#         while True:
-#             q = input("\nAsk (or exit): ")
-#             if q.lower() == "exit":
-#                 break
-#             resp = answer(client, llm, q)
-#             print(resp)
-#     finally:
-#         client.close()
-
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=True)
