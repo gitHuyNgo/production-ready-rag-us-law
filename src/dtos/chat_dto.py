@@ -14,3 +14,5 @@ class ChatDto(BaseModel):
     history: List[ChatMessageDto]
     role: Role
     content: str
+
+ChatDto.model_rebuild()
