@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from llama_index.llms.openai import OpenAIResponses
 from llama_index.core.llms import ChatMessage
+from llama_index.llms.openai import OpenAI
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
@@ -19,7 +20,7 @@ def _load_prompt(path: Path) -> str:
 
 
 def init_llm():
-    return OpenAIResponses(model="gpt-5.1", api_key=OPENAI_API_KEY)
+    return OpenAI(model="gpt-5.1", api_key=OPENAI_API_KEY)
 
 
 def ask_llm(llm, query: str, context: str):
