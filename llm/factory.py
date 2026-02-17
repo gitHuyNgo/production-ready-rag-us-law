@@ -1,3 +1,6 @@
+"""
+LLM provider factory: load config and create provider-specific clients.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,18 +11,24 @@ import yaml
 
 
 class LLMFactoryError(Exception):
-    pass
+    """Raised when LLM factory configuration or creation fails."""
 
 
 @dataclass
 class ProviderConfig:
+    """Provider configuration from YAML."""
+
     name: str
     type: str
     model: str
     params: Dict[str, Any]
 
 
-def load_providers_config(path: str = "llm/providers.yaml") -> Dict[str, Any]:
+DEFAULT_PROVIDERS_PATH = "llm/providers.yaml"
+
+
+def load_providers_config(path: str = DEFAULT_PROVIDERS_PATH) -> Dict[str, Any]:
+    """Load and validate providers YAML config."""
     cfg_path = Path(path)
     if not cfg_path.exists():
         raise FileNotFoundError(f"providers.yaml not found: {cfg_path}")
@@ -39,8 +48,9 @@ def load_providers_config(path: str = "llm/providers.yaml") -> Dict[str, Any]:
 
 def get_provider_config(
     provider_name: Optional[str] = None,
-    path: str = "llm/providers.yaml",
+    path: str = DEFAULT_PROVIDERS_PATH,
 ) -> ProviderConfig:
+    """Get provider config by name or default."""
     data = load_providers_config(path=path)
 
     default_name = data["default"]
@@ -63,7 +73,6 @@ def get_provider_config(
     if not model:
         raise LLMFactoryError(f"Provider '{name}' missing required field: model")
 
-    # Keep the rest as provider-specific params
     params = dict(p)
     params.pop("type", None)
     params.pop("model", None)
@@ -71,17 +80,22 @@ def get_provider_config(
     return ProviderConfig(name=name, type=p_type, model=model, params=params)
 
 
-# --------- Minimal multi-provider clients (thin adapters) ---------
-# These follow your interface: generate(prompt: str) -> str
-# Each adapter decides how to pass the prompt.
+# ---------------------------------------------------------------------------
+# Provider clients (thin adapters)
+# ---------------------------------------------------------------------------
+
 
 class BaseLLMClient:
+    """Base interface for LLM clients."""
+
     def generate(self, prompt: str) -> str:
         raise NotImplementedError
 
 
 class OpenAIClient(BaseLLMClient):
-    def __init__(self, api_key: str, model: str, **params: Any):
+    """OpenAI chat completions adapter."""
+
+    def __init__(self, api_key: str, model: str, **params: Any) -> None:
         try:
             from openai import OpenAI
         except ImportError as e:
@@ -94,7 +108,6 @@ class OpenAIClient(BaseLLMClient):
         self._params = params
 
     def generate(self, prompt: str) -> str:
-        # Minimal: put everything in system message as one packed prompt.
         resp = self._client.chat.completions.create(
             model=self._model,
             messages=[{"role": "system", "content": prompt}],
@@ -105,7 +118,9 @@ class OpenAIClient(BaseLLMClient):
 
 
 class AnthropicClient(BaseLLMClient):
-    def __init__(self, api_key: str, model: str, **params: Any):
+    """Anthropic Claude adapter."""
+
+    def __init__(self, api_key: str, model: str, **params: Any) -> None:
         try:
             import anthropic
         except ImportError as e:
@@ -118,15 +133,12 @@ class AnthropicClient(BaseLLMClient):
         self._params = params
 
     def generate(self, prompt: str) -> str:
-        # Minimal: send prompt as a single user message
-        # (system prompt already included in packed prompt)
         msg = self._client.messages.create(
             model=self._model,
             max_tokens=self._params.get("max_output_tokens", 1024),
             temperature=self._params.get("temperature", 0.2),
             messages=[{"role": "user", "content": prompt}],
         )
-        # Anthropic returns content blocks
         parts = []
         for block in msg.content:
             text = getattr(block, "text", None)
@@ -136,7 +148,9 @@ class AnthropicClient(BaseLLMClient):
 
 
 class GeminiClient(BaseLLMClient):
-    def __init__(self, api_key: str, model: str, **params: Any):
+    """Google Gemini adapter."""
+
+    def __init__(self, api_key: str, model: str, **params: Any) -> None:
         try:
             import google.generativeai as genai
         except ImportError as e:
@@ -149,7 +163,6 @@ class GeminiClient(BaseLLMClient):
         self._params = params
 
     def generate(self, prompt: str) -> str:
-        # Minimal: generation_config maps max_output_tokens
         generation_config = {
             "temperature": self._params.get("temperature", 0.2),
             "max_output_tokens": self._params.get("max_output_tokens", 1024),
@@ -160,13 +173,13 @@ class GeminiClient(BaseLLMClient):
 
 def create_llm_client(
     provider_name: Optional[str] = None,
-    providers_path: str = "llm/providers.yaml",
+    providers_path: str = DEFAULT_PROVIDERS_PATH,
     *,
-    # Secrets MUST come from env, not YAML
     openai_api_key: Optional[str] = None,
     anthropic_api_key: Optional[str] = None,
     gemini_api_key: Optional[str] = None,
 ) -> BaseLLMClient:
+    """Create LLM client from provider config. Secrets must come from env, not YAML."""
     cfg = get_provider_config(provider_name=provider_name, path=providers_path)
 
     p_type = cfg.type.lower().strip()
@@ -188,5 +201,5 @@ def create_llm_client(
 
     raise LLMFactoryError(
         f"Unsupported provider type: '{cfg.type}'. "
-        f"Supported: openai, anthropic, gemini"
+        "Supported: openai, anthropic, gemini"
     )
