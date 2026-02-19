@@ -20,4 +20,4 @@ class BaseReranker(ABC):
         Returns:
             Reranked list of documents (possibly reordered and/or truncated).
         """
-        pass
+        pass  # pragma: no cover

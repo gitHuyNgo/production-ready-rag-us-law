@@ -1,19 +1,21 @@
-# RAG
+### Core RAG stack
 weaviate-client
-rank-bm25
-FlagEmbedding
 docling
 llama-index
 
-# HTTP Server
+### API and web
 fastapi[standard]
 uvicorn
 
-# Shared
-pydantic
-dotenv
+### Embeddings / rerankers
+rank-bm25
+cohere
 
-# Testing
+### Configuration / validation
+pydantic
+pydantic-settings
+
+### Testing
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.1.0

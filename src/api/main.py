@@ -51,7 +51,7 @@ app = FastAPI(title=APP_TITLE, lifespan=lifespan)
 app.include_router(chat_router.router)
 app.include_router(helper_router.router)
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - manual server entrypoint
     uvicorn.run(
         "src.api.main:app",
         host=DEFAULT_HOST,
