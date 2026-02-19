@@ -19,4 +19,4 @@ class BaseLLM(ABC):
         Returns:
             Generated answer string.
         """
-        pass
+        pass  # pragma: no cover
