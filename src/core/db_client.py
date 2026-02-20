@@ -2,6 +2,7 @@
 Weaviate vector store client for document storage and retrieval.
 """
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import weaviate
 from llama_index.embeddings.openai import OpenAIEmbedding
@@ -9,6 +10,14 @@ from weaviate.classes.query import MetadataQuery
 
 from src.core.config import settings
 from src.core.base_db import BaseVectorStore
+
+
+def _host_port_from_url(url: str) -> tuple[str, int]:
+    """Parse WEAVIATE_URL into (host, port) for connect_to_local."""
+    parsed = urlparse(url)
+    host = parsed.hostname or "localhost"
+    port = parsed.port if parsed.port is not None else 8080
+    return host, port
 
 
 class WeaviateClient(BaseVectorStore):
@@ -20,8 +29,9 @@ class WeaviateClient(BaseVectorStore):
         self.client: Optional[weaviate.WeaviateClient] = None
 
     def connect(self) -> weaviate.WeaviateClient:
-        """Connect to local Weaviate instance."""
-        self.client = weaviate.connect_to_local()
+        """Connect to Weaviate using WEAVIATE_URL (e.g. http://localhost:8080)."""
+        host, port = _host_port_from_url(settings.WEAVIATE_URL)
+        self.client = weaviate.connect_to_local(host=host, port=port)
         return self.client
 
     def initialize_schema(self, recreate: bool = False) -> None:
