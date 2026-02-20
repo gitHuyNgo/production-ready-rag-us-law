@@ -1,0 +1,52 @@
+# Git and CI
+.git
+.github
+
+# Env and secrets (never in image)
+.env
+.env.*
+
+# Python
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+.eggs
+dist
+build
+*.egg
+
+# Testing and coverage
+tests
+.pytest_cache
+.coverage
+htmlcov
+.tox
+.nox
+
+# IDE and editor
+.vscode
+.idea
+.cursor
+*.swp
+*.swo
+.DS_Store
+
+# Type checkers and linters
+.mypy_cache
+.ruff_cache
+
+# Docs and misc (not needed at runtime)
+README.md
+*.md
+docs
+docker-compose.yml
+Dockerfile
+
+# Data and local assets (mount at runtime if needed)
+data
