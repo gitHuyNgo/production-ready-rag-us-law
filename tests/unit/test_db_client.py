@@ -74,8 +74,8 @@ def patched_weaviate(monkeypatch: pytest.MonkeyPatch):
     fake_embed = _FakeEmbedModel()
 
     # Patch external dependencies inside db_client module.
-    monkeypatch.setattr("src.core.db_client.weaviate.connect_to_local", lambda: fake_client)
-    monkeypatch.setattr("src.core.db_client.OpenAIEmbedding", lambda api_key: fake_embed)
+    monkeypatch.setattr("src.core.db_client.weaviate.connect_to_local", lambda *args, **kwargs: fake_client)
+    monkeypatch.setattr("src.core.db_client.OpenAIEmbedding", lambda *args, **kwargs: fake_embed)
 
     return fake_client, fake_embed
 
