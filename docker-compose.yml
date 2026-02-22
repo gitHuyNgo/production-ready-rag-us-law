@@ -1,5 +1,15 @@
 ---
+# Redis Stack includes RediSearch with vector similarity (required for semantic cache)
 services:
+  redis:
+    image: redis/redis-stack:latest
+    ports:
+      - "6379:6379"
+      - "8001:8001"
+    volumes:
+      - redis_data:/data
+    restart: on-failure
+
   weaviate:
     image: cr.weaviate.io/semitechnologies/weaviate:1.30.0
     command: ["--host", "0.0.0.0", "--port", "8080", "--scheme", "http"]
@@ -31,11 +41,15 @@ services:
       WEAVIATE_URL: http://weaviate:8080
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       COHERE_API_KEY: ${COHERE_API_KEY}
+      REDIS_URL: redis://redis:6379
     depends_on:
       weaviate:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: on-failure
 
 volumes:
+  redis_data:
   weaviate_data:
 ...
