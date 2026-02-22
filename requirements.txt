@@ -11,6 +11,10 @@ uvicorn
 rank-bm25
 cohere
 
+### Semantic cache (Redis Stack with RediSearch required for vector search)
+redis
+numpy
+
 ### Configuration / validation
 pydantic
 pydantic-settings
