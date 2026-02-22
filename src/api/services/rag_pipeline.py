@@ -1,7 +1,7 @@
 """
 RAG pipeline: retrieval, reranking, context building, and LLM generation.
 """
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 
 from src.api.services.base_reranker import BaseReranker
 from src.core.base_db import BaseVectorStore
@@ -60,3 +60,19 @@ def answer(
 
     context = transform(vec_docs)
     return llm.generate(query, context)
+
+
+def answer_stream(
+    db: BaseVectorStore,
+    llm: BaseLLM,
+    first_reranker: BaseReranker,
+    second_reranker: BaseReranker,
+    query: str,
+) -> Iterator[str]:
+    """
+    Run RAG pipeline and stream LLM response tokens.
+    Retrieval and context building are done once; then chunks are yielded from the LLM.
+    """
+    vec_docs = db.retrieve(query, top_k=DEFAULT_RETRIEVAL_TOP_K)
+    context = transform(vec_docs)
+    yield from llm.generate_stream(query, context)

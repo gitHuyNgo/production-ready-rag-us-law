@@ -7,13 +7,16 @@ class _FakeDB:
     def __init__(self) -> None:
         self.connected = False
         self.closed = False
+        self.client = None  
 
     def connect(self):
         self.connected = True
+        self.client = True  
         return self
 
     def close(self):
         self.closed = True
+        self.client = None
 
 
 class _FakeLLM:

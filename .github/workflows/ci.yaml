@@ -27,7 +27,7 @@ jobs:
   build-push:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'pull_request' && github.base_ref == 'main') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     permissions:
       contents: read
       packages: write
@@ -37,8 +37,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Set image repo (lowercase for GHCR)
-        run: echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+      - name: Set image repo and tag (lowercase for GHCR, safe tag for PRs)
+        run: |
+          echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "IMAGE_TAG=pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -54,6 +60,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}
-            ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.ref_name }}
+            ghcr.io/${{ env.REPO_LOWER }}/backend:${{ env.IMAGE_TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
