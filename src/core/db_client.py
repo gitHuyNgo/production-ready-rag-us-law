@@ -10,6 +10,7 @@ from weaviate.classes.query import MetadataQuery
 
 from src.core.config import settings
 from src.core.base_db import BaseVectorStore
+from src.core.schema import init_schema
 
 
 def _host_port_from_url(url: str) -> tuple[str, int]:
@@ -25,7 +26,7 @@ class WeaviateClient(BaseVectorStore):
 
     def __init__(self) -> None:
         self.class_name = settings.WEAVIATE_CLASS_NAME
-        self.embed_model = OpenAIEmbedding(api_key=settings.OPENAI_API_KEY)
+        self.embed_model = OpenAIEmbedding(api_key=settings.OPENAI_API_KEY, model=settings.OPENAI_EMBEDDING_MODEL)
         self.client: Optional[weaviate.WeaviateClient] = None
 
     def connect(self) -> weaviate.WeaviateClient:
@@ -35,12 +36,10 @@ class WeaviateClient(BaseVectorStore):
         return self.client
 
     def initialize_schema(self, recreate: bool = False) -> None:
-        """Create or recreate collection schema."""  # pragma: no cover
-        if recreate and self.client.collections.exists(self.class_name):  # pragma: no cover
-            self.client.collections.delete(self.class_name)  # pragma: no cover
-
-        if not self.client.collections.exists(self.class_name):  # pragma: no cover
-            pass  # pragma: no cover
+        """Create or recreate collection schema (vector dimension is set by first insert)."""
+        if self.client is None:
+            raise RuntimeError("Connect before calling initialize_schema")
+        init_schema(self.client, recreate=recreate)
 
     def batch_load(self, items: List[Dict[str, Any]]) -> None:
         """Load documents into the vector store with embeddings."""

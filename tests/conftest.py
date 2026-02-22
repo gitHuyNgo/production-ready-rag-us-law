@@ -90,5 +90,7 @@ def test_client() -> TestClient:
     app.state.llm = DummyLLM()
     app.state.first_reranker = PassthroughReranker()
     app.state.second_reranker = PassthroughReranker()
+    app.state.semantic_cache = type("_NoCache", (), {"enabled": False})()
+    app.state.embed_model = None
 
     return TestClient(app)

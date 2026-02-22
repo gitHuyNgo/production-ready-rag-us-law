@@ -37,6 +37,8 @@ async def test_lifespan_initializes_and_cleans_up(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(main_module, "OpenAILLM", lambda: _FakeLLM())
     monkeypatch.setattr(main_module, "BM25Reranker", lambda top_k: _FakeReranker(top_k))
     monkeypatch.setattr(main_module, "CohereReranker", lambda top_k: _FakeReranker(top_k))
+    fake_cache = type("_FakeCache", (), {"enabled": False, "close": lambda self: None})()
+    monkeypatch.setattr(main_module, "SemanticCache", lambda: fake_cache)
 
     app = main_module.app
 
@@ -46,6 +48,8 @@ async def test_lifespan_initializes_and_cleans_up(monkeypatch: pytest.MonkeyPatc
         assert isinstance(app.state.llm, _FakeLLM)
         assert isinstance(app.state.first_reranker, _FakeReranker)
         assert isinstance(app.state.second_reranker, _FakeReranker)
+        assert hasattr(app.state, "semantic_cache")
+        assert hasattr(app.state, "embed_model")
         assert fake_db.connected is True
 
     # After lifespan exits, db.close should have been called.

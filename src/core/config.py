@@ -48,6 +48,20 @@ class Settings(BaseSettings):
     WEAVIATE_URL: str = Field(default="http://localhost:8080")
     WEAVIATE_CLASS_NAME: str = Field(default="document_chunk_embedding")
 
+    OPENAI_EMBEDDING_MODEL: str = Field(
+        default="text-embedding-3-large",
+        description="OpenAI embedding model (3072 dims for 3-large, 1536 for 3-small/ada-002). Must match CACHE_EMBED_DIM.",
+    )
+
+    # Semantic cache (Redis Stack with RediSearch required for vector similarity)
+    REDIS_URL: str = Field(default="redis://localhost:6379", description="Redis URL for semantic cache (e.g. redis://localhost:6379). Empty = cache disabled.")
+    CACHE_TTL_SECONDS: int = Field(default=86400, description="TTL for cached LLM responses (default 24h)")
+    CACHE_SIMILARITY_THRESHOLD: float = Field(default=0.95, ge=0.0, le=1.0, description="Min cosine similarity to return cached response")
+    CACHE_EMBED_DIM: int = Field(
+        default=3072,
+        description="Embedding dimension (must match embed model: 3072 for text-embedding-3-large, 1536 for 3-small/ada-002).",
+    )
+
     ENVIRONMENT: str = Field(default=ENV_DEVELOPMENT)
     LOG_LEVEL: str = Field(default="INFO")
 

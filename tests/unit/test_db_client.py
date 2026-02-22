@@ -3,12 +3,14 @@ from typing import Any, Dict, List
 import pytest
 
 from src.core.db_client import WeaviateClient
+from src.core.schema import CLASS_NAME
 
 
 class _FakeWeaviateCollection:
     def __init__(self) -> None:
         self.deleted: List[str] = []
         self.used_class_names: List[str] = []
+        self.created_class_names: List[str] = []
         self.batched_objects: List[Dict[str, Any]] = []
         # In real client, `batch` and `query` are attributes that expose
         # further methods (dynamic, near_vector), so we model that by
@@ -18,10 +20,17 @@ class _FakeWeaviateCollection:
 
     def delete(self, class_name: str) -> None:
         self.deleted.append(class_name)
+        if class_name in self.used_class_names:
+            self.used_class_names.remove(class_name)
+        if class_name in self.created_class_names:
+            self.created_class_names.remove(class_name)
 
     def exists(self, class_name: str) -> bool:
-        # For schema initialization we simulate that the class exists first, then not.
-        return class_name in self.used_class_names
+        return class_name in self.used_class_names or class_name in self.created_class_names
+
+    def create(self, name: str, **kwargs) -> None:
+        """Fake create for init_schema (name, properties, vector_config)."""
+        self.created_class_names.append(name)
 
     def use(self, class_name: str):
         self.used_class_names.append(class_name)
@@ -114,12 +123,26 @@ def test_weaviate_client_batch_load_and_retrieve(patched_weaviate):
 
 
 def test_weaviate_client_initialize_schema_is_callable(patched_weaviate):
-    _, _ = patched_weaviate
+    fake_client, _ = patched_weaviate
 
     client = WeaviateClient()
     client.connect()
 
-    # Just ensure that calling initialize_schema does not raise and
-    # therefore lines in the method are executed for coverage.
     client.initialize_schema(recreate=False)
+    assert CLASS_NAME in fake_client.collections.created_class_names
+
+    # Recreate=True when collection exists: delete then create (covers schema delete branch)
+    client.initialize_schema(recreate=True)
+    assert CLASS_NAME in fake_client.collections.deleted
+    assert CLASS_NAME in fake_client.collections.created_class_names
+
+
+def test_weaviate_client_initialize_schema_raises_without_connect(patched_weaviate):
+    _, _ = patched_weaviate
+
+    client = WeaviateClient()
+    # Do not call connect(); client.client is None
+
+    with pytest.raises(RuntimeError, match="Connect before calling initialize_schema"):
+        client.initialize_schema(recreate=True)
 
