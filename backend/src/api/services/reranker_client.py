@@ -9,8 +9,6 @@ from rank_bm25 import BM25Okapi
 from src.api.services.base_reranker import BaseReranker
 from src.core.config import settings
 
-COHERE_MODEL_DEFAULT = "rerank-english-v3.0"
-
 
 class BM25Reranker(BaseReranker):
     """BM25-based local reranker using tokenized corpus and query."""
@@ -36,7 +34,7 @@ class BM25Reranker(BaseReranker):
 class CohereReranker(BaseReranker):
     """Cohere API-based reranker."""
 
-    def __init__(self, model: str = COHERE_MODEL_DEFAULT, top_k: int = 3):
+    def __init__(self, model: str = settings.COHERE_RERANKER_MODEL, top_k: int = 3):
         self.api_key = settings.COHERE_API_KEY
         if not self.api_key:
             raise ValueError("Cohere API Key not found. Set COHERE_API_KEY env var.")

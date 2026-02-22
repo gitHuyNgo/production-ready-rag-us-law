@@ -34,13 +34,13 @@ services:
     restart: on-failure
 
   backend:
-    build: .
+    build: ./backend
+    env_file:
+      - ./backend/.env
     ports:
       - "8000:8000"
     environment:
       WEAVIATE_URL: http://weaviate:8080
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      COHERE_API_KEY: ${COHERE_API_KEY}
       REDIS_URL: redis://redis:6379
     depends_on:
       weaviate:

@@ -48,11 +48,14 @@ class Settings(BaseSettings):
     WEAVIATE_URL: str = Field(default="http://localhost:8080")
     WEAVIATE_CLASS_NAME: str = Field(default="document_chunk_embedding")
 
+    COHERE_RERANKER_MODEL: str = Field(default="rerank-english-v3.0", description="Cohere Reranker model")
+
     OPENAI_EMBEDDING_MODEL: str = Field(
         default="text-embedding-3-large",
         description="OpenAI embedding model (3072 dims for 3-large, 1536 for 3-small/ada-002). Must match CACHE_EMBED_DIM.",
     )
-
+    OPENAI_LLM_MODEL: str = Field(default="gpt-5.1", description="OpenAI LLM model")
+    
     # Semantic cache (Redis Stack with RediSearch required for vector similarity)
     REDIS_URL: str = Field(default="redis://localhost:6379", description="Redis URL for semantic cache (e.g. redis://localhost:6379). Empty = cache disabled.")
     CACHE_TTL_SECONDS: int = Field(default=86400, description="TTL for cached LLM responses (default 24h)")

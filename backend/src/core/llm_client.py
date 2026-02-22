@@ -13,14 +13,13 @@ from src.core.config import settings
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-_PROMPTS_DIR = Path(__file__).resolve().parents[2] / "llm" / "prompts"
-DEFAULT_MODEL = "gpt-5.1"
+_PROMPTS_DIR = Path(__file__).resolve().parents[1] / "llm" / "prompts"
 
 
 class OpenAILLM(BaseLLM):
     """OpenAI-based LLM with system and answer-style prompts."""
 
-    def __init__(self, model: str = DEFAULT_MODEL) -> None:
+    def __init__(self, model: str = settings.OPENAI_LLM_MODEL) -> None:
         self.llm = OpenAI(model=model, api_key=settings.OPENAI_API_KEY)
         self.system_prompt = self._load_prompt("system_prompt.txt")
         self.answer_style = self._load_prompt("answer_style.txt")
