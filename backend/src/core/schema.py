@@ -2,11 +2,11 @@
 Weaviate collection schema definition.
 """
 from weaviate.classes.config import Configure, DataType, Property
+from src.core.config import settings
 
 # ---------------------------------------------------------------------------
 # Schema constants
 # ---------------------------------------------------------------------------
-CLASS_NAME = "document_chunk_embedding"
 
 
 def init_schema(client, recreate: bool = False) -> None:
@@ -17,11 +17,11 @@ def init_schema(client, recreate: bool = False) -> None:
         client: Weaviate client instance.
         recreate: If True, delete existing collection before creating.
     """
-    if client.collections.exists(CLASS_NAME):
-        client.collections.delete(CLASS_NAME)
+    if client.collections.exists(settings.WEAVIATE_CLASS_NAME):
+        client.collections.delete(settings.WEAVIATE_CLASS_NAME)
 
     client.collections.create(
-        name=CLASS_NAME,
+        name=settings.WEAVIATE_CLASS_NAME,
         properties=[
             Property(name="text", data_type=DataType.TEXT),
             Property(name="source", data_type=DataType.TEXT),

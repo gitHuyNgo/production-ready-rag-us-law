@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 import pytest
 
 from src.core.db_client import WeaviateClient
-from src.core.schema import CLASS_NAME
+from src.core.config import settings
 
 
 class _FakeWeaviateCollection:
@@ -129,12 +129,12 @@ def test_weaviate_client_initialize_schema_is_callable(patched_weaviate):
     client.connect()
 
     client.initialize_schema(recreate=False)
-    assert CLASS_NAME in fake_client.collections.created_class_names
+    assert settings.WEAVIATE_CLASS_NAME in fake_client.collections.created_class_names
 
     # Recreate=True when collection exists: delete then create (covers schema delete branch)
     client.initialize_schema(recreate=True)
-    assert CLASS_NAME in fake_client.collections.deleted
-    assert CLASS_NAME in fake_client.collections.created_class_names
+    assert settings.WEAVIATE_CLASS_NAME in fake_client.collections.deleted
+    assert settings.WEAVIATE_CLASS_NAME in fake_client.collections.created_class_names
 
 
 def test_weaviate_client_initialize_schema_raises_without_connect(patched_weaviate):
