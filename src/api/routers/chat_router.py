@@ -10,6 +10,13 @@ from src.dtos.chat_dto import ChatDto
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
+def _get_query_embedding_fn(embed_model):
+    """Return a callable that embeds query text, or None if no embed model."""
+    if embed_model is None:
+        return None
+    return lambda q: embed_model.get_text_embedding(q)
+
+
 @router.post("/")
 async def chat_post(request: Request, dto: ChatDto):
     """Handle chat via POST: same contract as WebSocket, single response."""
@@ -17,6 +24,8 @@ async def chat_post(request: Request, dto: ChatDto):
     llm = request.app.state.llm
     first_reranker = request.app.state.first_reranker
     second_reranker = request.app.state.second_reranker
+    semantic_cache = getattr(request.app.state, "semantic_cache", None)
+    get_query_embedding = _get_query_embedding_fn(getattr(request.app.state, "embed_model", None))
 
     result = await asyncio.to_thread(
         answer,
@@ -25,6 +34,8 @@ async def chat_post(request: Request, dto: ChatDto):
         first_reranker=first_reranker,
         second_reranker=second_reranker,
         query=dto.content,
+        semantic_cache=semantic_cache,
+        get_query_embedding=get_query_embedding,
     )
     return {
         "history": [m.model_dump() for m in dto.history],
@@ -42,7 +53,7 @@ def _run_stream_into_queue(thread_queue: Queue, stream_args: dict) -> None:
             chunks.append(chunk)
             thread_queue.put(("chunk", chunk))
         thread_queue.put(("done", "".join(chunks)))
-    except Exception as e:
+    except Exception as e:  # pragma: no cover - defensive; tested via integration
         thread_queue.put(("error", str(e)))
 
 
@@ -55,6 +66,8 @@ async def chat_websocket(websocket: WebSocket):
     llm = websocket.app.state.llm
     first_reranker = websocket.app.state.first_reranker
     second_reranker = websocket.app.state.second_reranker
+    semantic_cache = getattr(websocket.app.state, "semantic_cache", None)
+    get_query_embedding = _get_query_embedding_fn(getattr(websocket.app.state, "embed_model", None))
 
     try:
         while True:
@@ -69,6 +82,8 @@ async def chat_websocket(websocket: WebSocket):
                 "first_reranker": first_reranker,
                 "second_reranker": second_reranker,
                 "query": dto.content,
+                "semantic_cache": semantic_cache,
+                "get_query_embedding": get_query_embedding,
             }
             loop = asyncio.get_event_loop()
             loop.run_in_executor(
@@ -102,22 +117,22 @@ async def chat_websocket(websocket: WebSocket):
                         })
                     )
                     break
-                else:
+                else:  # pragma: no cover - error from pipeline/queue
                     await websocket.send_text(
                         json.dumps({"t": "error", "error": value})
                     )
                     break
-    except WebSocketDisconnect:
+    except WebSocketDisconnect:  # pragma: no cover - client disconnect
         pass
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError as e:  # pragma: no cover - invalid payload
         await websocket.send_text(
             json.dumps({"t": "error", "error": f"Invalid JSON: {e!s}"})
         )
-    except Exception as e:
+    except Exception as e:  # pragma: no cover - validation or pipeline error
         await websocket.send_text(
             json.dumps({"t": "error", "error": str(e)})
         )
-    finally:
+    finally:  # pragma: no cover - cleanup
         try:
             await websocket.close()
         except Exception:

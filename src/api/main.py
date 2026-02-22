@@ -11,6 +11,7 @@ from src.api.services.reranker_client import BM25Reranker, CohereReranker
 from src.core.config import settings
 from src.core.db_client import WeaviateClient
 from src.core.llm_client import OpenAILLM
+from src.core.semantic_cache import SemanticCache
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -27,14 +28,18 @@ async def lifespan(app: FastAPI):
 
     bm25_reranker = BM25Reranker(top_k=settings.RERANKER_BM25_TOP_K)
     cohere_reranker = CohereReranker(top_k=settings.RERANKER_COHERE_TOP_K)
+    semantic_cache = SemanticCache()
 
     app.state.db = db
     app.state.llm = llm
     app.state.first_reranker = bm25_reranker
     app.state.second_reranker = cohere_reranker
+    app.state.semantic_cache = semantic_cache
+    app.state.embed_model = getattr(db, "embed_model", None)
 
     yield
 
+    semantic_cache.close()
     if db.client:
         db.close()
 
