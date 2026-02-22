@@ -15,25 +15,18 @@ from src.core.llm_client import OpenAILLM
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-APP_TITLE = "US Law RAG Controller"
-DEFAULT_HOST = "0.0.0.0"
-DEFAULT_PORT = 8000
-RERANKER_BM25_TOP_K = 10
-RERANKER_COHERE_TOP_K = 3
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle: init resources on startup, cleanup on shutdown."""
-    print("🚀 Initializing RAG Controller...")
-
     db = WeaviateClient()
     db.connect()
 
     llm = OpenAILLM()
 
-    bm25_reranker = BM25Reranker(top_k=RERANKER_BM25_TOP_K)
-    cohere_reranker = CohereReranker(top_k=RERANKER_COHERE_TOP_K)
+    bm25_reranker = BM25Reranker(top_k=settings.RERANKER_BM25_TOP_K)
+    cohere_reranker = CohereReranker(top_k=settings.RERANKER_COHERE_TOP_K)
 
     app.state.db = db
     app.state.llm = llm
@@ -42,11 +35,11 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    print("🛑 Closing connections...")
-    db.close()
+    if db.client:
+        db.close()
 
 
-app = FastAPI(title=APP_TITLE, lifespan=lifespan)
+app = FastAPI(title=settings.APP_TITLE, lifespan=lifespan)
 
 app.include_router(chat_router.router)
 app.include_router(helper_router.router)
@@ -54,7 +47,7 @@ app.include_router(helper_router.router)
 if __name__ == "__main__":  # pragma: no cover - manual server entrypoint
     uvicorn.run(
         "src.api.main:app",
-        host=DEFAULT_HOST,
-        port=DEFAULT_PORT,
+        host=settings.DEFAULT_HOST,
+        port=settings.DEFAULT_PORT,
         reload=True,
     )
