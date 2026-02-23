@@ -49,6 +49,14 @@ services:
         condition: service_started
     restart: on-failure
 
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: on-failure
+
 volumes:
   redis_data:
   weaviate_data:
