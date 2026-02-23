@@ -37,7 +37,7 @@ def get_env_file() -> str:
 class Settings(BaseSettings):
     """Application settings with validation and env loading."""
     APP_TITLE: str = "US Law RAG Controller"
-    DEFAULT_HOST: str = "0.0.0.0"
+    DEFAULT_HOST: str = "127.0.0.1"
     DEFAULT_PORT: int = 8000
     RERANKER_BM25_TOP_K: int = 10
     RERANKER_COHERE_TOP_K: int = 3
