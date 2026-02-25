@@ -1,40 +1,51 @@
-name: Frontend CI
+name: Chat API CI
 
 on:
   push:
     branches: [main]
     paths:
-      - "app/frontend/**"
-      - ".github/workflows/frontend_ci.yaml"
+      - "libs/**"
+      - "app/chat-api/**"
+      - "docker-compose.yml"
+      - ".github/workflows/chat_api_ci.yaml"
   pull_request:
     branches: [main]
     paths:
-      - "app/frontend/**"
-      - ".github/workflows/frontend_ci.yaml"
+      - "libs/**"
+      - "app/chat-api/**"
+      - "docker-compose.yml"
+      - ".github/workflows/chat_api_ci.yaml"
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: app/frontend/package-lock.json
+          python-version: "3.12"
 
-      - name: Install dependencies
-        run: npm ci
-        working-directory: app/frontend
+      - name: Install shared lib
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e libs/code-shared
 
-      - name: Build
-        run: npm run build
-        working-directory: app/frontend
+      - name: Install chat-api dependencies
+        run: |
+          pip install -r app/chat-api/requirements.txt
+
+      - name: Run chat-api tests
+        working-directory: app/chat-api
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          PYTHONPATH: .
+        run: make test
 
   build-push:
-    needs: build
+    needs: test
     runs-on: ubuntu-latest
     if: (github.event_name == 'pull_request' && github.base_ref == 'main') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     permissions:
@@ -62,14 +73,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push frontend image
+      - name: Build and push chat-api image
         uses: docker/build-push-action@v6
         with:
-          context: app/frontend
-          file: app/frontend/Dockerfile
+          context: .
+          file: app/chat-api/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}
-            ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ env.IMAGE_TAG }}
+            ghcr.io/${{ env.REPO_LOWER }}/chat-api:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/chat-api:${{ env.IMAGE_TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
