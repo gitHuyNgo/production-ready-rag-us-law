@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     RERANKER_COHERE_TOP_K: int = 3
 
     OPENAI_API_KEY: str = Field(..., description="Key for OpenAI Embeddings and LLM")
-    COHERE_API_KEY: str = Field(..., description="Key for Cohere Reranker")
+    COHERE_API_KEY: str = Field(default="", description="Key for Cohere Reranker (optional; only chat-api uses it)")
 
     WEAVIATE_URL: str = Field(default="http://localhost:8080")
     WEAVIATE_CLASS_NAME: str = Field(default="document_chunk_embedding")
