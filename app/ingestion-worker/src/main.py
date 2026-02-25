@@ -4,7 +4,7 @@ Ingestion script entrypoint: load PDFs from data folder into vector store.
 import argparse
 
 from code_shared.core import WeaviateClient, SemanticCache
-from ingestion.ingest import IngestionProcessor
+from src.ingest import IngestionProcessor
 
 
 DEFAULT_DATA_FOLDER = "./data"

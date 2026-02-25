@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List
 
 from code_shared.core import BaseVectorStore
-from ingestion.chunker import LegalChunker
+from src.chunker import LegalChunker
 
 
 class IngestionProcessor:

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from ingestion.ingest import IngestionProcessor
+from src.ingest import IngestionProcessor
 
 
 class _FakeNode:

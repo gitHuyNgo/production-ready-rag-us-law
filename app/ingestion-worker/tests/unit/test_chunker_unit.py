@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from ingestion.chunker import LegalChunker
+from src.chunker import LegalChunker
 
 
 class _FakeDoc:
@@ -40,8 +40,8 @@ class _FakeParser:
 def patch_chunker(monkeypatch: pytest.MonkeyPatch):
     fake_converter = _FakeConverter()
     fake_parser = _FakeParser()
-    monkeypatch.setattr("ingestion.chunker.DocumentConverter", lambda: fake_converter)
-    monkeypatch.setattr("ingestion.chunker.MarkdownNodeParser", lambda: fake_parser)
+    monkeypatch.setattr("src.chunker.DocumentConverter", lambda: fake_converter)
+    monkeypatch.setattr("src.chunker.MarkdownNodeParser", lambda: fake_parser)
     return fake_converter, fake_parser
 
 
