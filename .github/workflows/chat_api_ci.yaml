@@ -1,0 +1,85 @@
+name: Chat API CI
+
+on:
+  push:
+    paths:
+      - "libs/**"
+      - "app/chat-api/**"
+      - "docker-compose.yml"
+      - ".github/workflows/chat_api_ci.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "libs/**"
+      - "app/chat-api/**"
+      - "docker-compose.yml"
+      - ".github/workflows/chat_api_ci.yaml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install shared lib
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e libs/code-shared
+
+      - name: Install chat-api dependencies
+        run: |
+          pip install -r app/chat-api/requirements.txt
+
+      - name: Run chat-api tests
+        working-directory: app/chat-api
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          PYTHONPATH: .
+        run: make test
+
+  build-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set image repo and tag
+        run: |
+          echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "IMAGE_TAG=pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push chat-api image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: app/chat-api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/chat-api:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/chat-api:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "code-shared"
+version = "0.1.0"
+description = "Shared LLM and base types for microservices"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "llama-index-core",
+    "llama-index-llms-openai",
+    "llama-index-embeddings-openai",
+    "weaviate-client",
+    "redis",
+    "numpy",
+    "pydantic",
+    "pydantic-settings",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"code_shared.llm" = ["prompts/*.txt"]
+
+[project.scripts]

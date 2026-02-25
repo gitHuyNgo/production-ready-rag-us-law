@@ -1,0 +1,10 @@
+# Install shared lib first (from repo root): pip install -e libs/code-shared
+# Then: pip install -r app/ingestion-worker/requirements.txt
+
+# PDF and chunking (vector store, cache, config come from code-shared)
+llama-index
+docling
+
+# Testing
+pytest>=7.4.0
+pytest-mock>=3.11.0
