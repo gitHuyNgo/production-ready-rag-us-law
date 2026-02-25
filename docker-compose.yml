@@ -33,10 +33,12 @@ services:
       start_period: 10s
     restart: on-failure
 
-  backend:
-    build: ./backend
+  chat-api:
+    build:
+      context: .
+      dockerfile: app/chat-api/Dockerfile
     env_file:
-      - ./backend/.env
+      - ./app/.env
     ports:
       - "8000:8000"
     environment:
@@ -50,11 +52,11 @@ services:
     restart: on-failure
 
   frontend:
-    build: ./frontend
+    build: app/frontend
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      - chat-api
     restart: on-failure
 
 volumes:
