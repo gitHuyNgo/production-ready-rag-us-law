@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -e /libs/code-shared
 COPY app/ingestion-worker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app/ingestion-worker/ingestion ./ingestion
+COPY app/ingestion-worker/src ./src
 COPY app/ingestion-worker/Makefile .
 COPY app/ingestion-worker/ingestion.sh .
 
