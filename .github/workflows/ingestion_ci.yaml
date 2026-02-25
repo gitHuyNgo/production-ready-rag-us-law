@@ -2,7 +2,6 @@ name: Ingestion Worker CI
 
 on:
   push:
-    branches: [main]
     paths:
       - "libs/**"
       - "app/ingestion-worker/**"
