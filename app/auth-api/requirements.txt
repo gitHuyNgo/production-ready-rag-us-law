@@ -1,0 +1,15 @@
+fastapi[standard]
+uvicorn
+SQLAlchemy
+psycopg2-binary
+python-jose[cryptography]
+passlib[argon2]
+pydantic
+pydantic-settings
+Authlib
+pytest
+pytest-asyncio
+pytest-cov
+httpx
+aiokafka
+itsdangerous
