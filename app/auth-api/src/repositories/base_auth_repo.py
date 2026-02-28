@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Optional
 
 from src.models.auth import User
 
 
 class BaseAuthRepository(ABC):
-    """Abstraction for user storage and federated identities."""
-
     @abstractmethod
     def get_by_username(self, username: str) -> Optional[User]:
         ...
@@ -35,4 +34,13 @@ class BaseAuthRepository(ABC):
         username: str,
         email: str,
     ) -> User:
+        ...
+
+    @abstractmethod
+    def save_refresh_token(
+        self,
+        user_id: str,
+        refresh_token: str,
+        expires_at: datetime,
+    ) -> None:
         ...

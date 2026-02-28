@@ -9,24 +9,18 @@ from pydantic import BaseModel, Field
 
 
 class User(BaseModel):
-    """Core user identity. password empty if registered exclusively via OIDC (hash before store)."""
-
     username: str
     email: str
     password: str = ""
 
 
 class Federated(BaseModel):
-    """OpenID Connect / federated login mapping."""
-
     user_id: str
     provider: str  # e.g. 'google', 'github'
     subject_id: str  # unique ID from the external identity provider
 
 
 class RefreshToken(BaseModel):
-    """Token lifecycle management."""
-
     token: str
     user_id: str  # PydanticObjectId in doc; str keeps DB agnostic
     expires_at: datetime

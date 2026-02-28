@@ -11,6 +11,7 @@ src.repositories.postgres_auth_repo.
 
 from contextlib import contextmanager
 from typing import Generator, Optional
+from datetime import datetime
 import logging
 
 from sqlalchemy import create_engine
@@ -24,14 +25,12 @@ logger = logging.getLogger(__name__)
 class Base(DeclarativeBase):
     pass
 
-
 class UserModel(Base):
     __tablename__ = "users"
 
     username: Mapped[str] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(nullable=False, default="")
     password: Mapped[str] = mapped_column(nullable=False, default="")
-
 
 class FederatedModel(Base):
     __tablename__ = "federated"
@@ -40,6 +39,14 @@ class FederatedModel(Base):
     subject_id: Mapped[str] = mapped_column(primary_key=True)
     user_id: Mapped[str] = mapped_column(nullable=False)
 
+class RefreshTokenModel(Base):
+    """Stored refresh tokens: one row per user (create or update on login)."""
+    __tablename__ = "refresh_tokens"
+
+    user_id: Mapped[str] = mapped_column(primary_key=True)
+    token: Mapped[str] = mapped_column(nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(nullable=False)
+    revoked: Mapped[bool] = mapped_column(nullable=False, default=False)
 
 _engine = None
 _SessionLocal: Optional[sessionmaker[Session]] = None

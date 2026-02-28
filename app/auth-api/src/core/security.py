@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import jwt
 from passlib.context import CryptContext
+import uuid
 
 from src.core.helper import get_jwt_private_key, settings
 
@@ -25,3 +26,6 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(
         to_encode, private_key, algorithm=settings.JWT_ALGORITHM
     )
+
+def create_refresh_token() -> str:
+    return str(uuid.uuid4())

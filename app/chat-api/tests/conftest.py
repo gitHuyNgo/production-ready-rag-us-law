@@ -14,7 +14,7 @@ from code_shared.llm import BaseLLM
 
 from src.api.main import app
 from src.api.services.base_reranker import BaseReranker
-from code_shared.core import BaseVectorStore
+from code_shared.core.base_db import BaseVectorStore
 
 
 class InMemoryVectorStore(BaseVectorStore):

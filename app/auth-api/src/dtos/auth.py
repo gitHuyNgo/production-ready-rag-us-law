@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 class Token(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
 
 class RegisterRequest(BaseModel):
@@ -12,8 +13,6 @@ class RegisterRequest(BaseModel):
     password: str
 
 class UserOut(BaseModel):
-    """User data returned by API (no password)."""
-
     username: str
     email: str
 

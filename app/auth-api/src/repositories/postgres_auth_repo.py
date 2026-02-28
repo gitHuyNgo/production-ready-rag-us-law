@@ -1,5 +1,5 @@
 from typing import Optional, Tuple, Dict
-
+from datetime import datetime
 from sqlalchemy import select, func
 
 from src.models.auth import User
@@ -9,11 +9,12 @@ try:
     from src.db import (
         UserModel,
         FederatedModel,
+        RefreshTokenModel,
         get_db_session,
         is_db_available,
     )
 except ImportError:  # e.g. tests without DB
-    UserModel = FederatedModel = None  # type: ignore
+    UserModel = FederatedModel = RefreshTokenModel = None  # type: ignore
 
     def is_db_available() -> bool:  # type: ignore[func-returns-value]
         return False
@@ -152,3 +153,29 @@ class PostgreAuthRepository(BaseAuthRepository):
         self._memory_users[username] = user
         self._memory_federated[(provider, subject_id)] = username
         return user
+
+    # ---------- refresh token (create or update on login) ----------
+
+    def save_refresh_token(
+        self,
+        user_id: str,
+        refresh_token: str,
+        expires_at: datetime,
+    ) -> None:
+        if self._use_db() and RefreshTokenModel is not None:
+            with get_db_session() as session:
+                row = session.get(RefreshTokenModel, user_id)
+                if row:
+                    row.token = refresh_token
+                    row.expires_at = expires_at
+                    row.revoked = False
+                else:
+                    session.add(
+                        RefreshTokenModel(
+                            user_id=user_id,
+                            token=refresh_token,
+                            expires_at=expires_at,
+                            revoked=False,
+                        )
+                    )
+        # In-memory: no-op (optional: keep a dict if you need to validate refresh tokens later)

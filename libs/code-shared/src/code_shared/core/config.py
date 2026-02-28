@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def get_env_file() -> str:
-    """Path to .env file. Set APP_ENV_FILE to app/.env for local dev (e.g. ../.env from app/chat-api)."""
+    """Path to .env file. Default .env in service dir; set APP_ENV_FILE to override."""
     return os.getenv("APP_ENV_FILE", ".env")
 
 
@@ -53,4 +53,6 @@ class Settings(BaseSettings):
     )
 
 
-settings = Settings()
+# No global `settings` here. Each service (chat-api, ingestion-worker) defines and
+# instantiates its own Settings (e.g. subclass this class) and passes values into
+# WeaviateClient, SemanticCache, etc.

@@ -2,11 +2,17 @@
 Auth service: credentials, JWT, and user lookup.
 """
 
+from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 
+from src.core.exception import (
+    InvalidCredentialsError,
+    InvalidTokenError,
+    UsernameAlreadyRegisteredError,
+)
 from src.core.helper import get_jwt_public_key, settings
-from src.core.security import verify_password, get_password_hash, create_access_token
+from src.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token
 from src.dtos.auth import Token, UserOut
 from src.events import UserCreatedEvent, publisher
 from src.models.auth import User
@@ -41,7 +47,7 @@ class AuthService:
         password: str,
     ) -> UserOut:
         if self.repo.username_exists(username):
-            raise ValueError("Username already registered")
+            raise UsernameAlreadyRegisteredError("Username already registered")
         hashed = get_password_hash(password)
         user = self.repo.create_user(username, email, hashed)
         await publisher.publish_user_created(
@@ -56,9 +62,12 @@ class AuthService:
     ) -> Token:
         user = self.authenticate_user(username, password)
         if not user:
-            raise ValueError("Incorrect username or password")
+            raise InvalidCredentialsError("Incorrect username or password")
         access_token = create_access_token(data={"sub": user.username})
-        return Token(access_token=access_token)
+        refresh_token = create_refresh_token()
+        expires_at = datetime.now() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        self.repo.save_refresh_token(user.username, refresh_token, expires_at)
+        return Token(access_token=access_token, refresh_token=refresh_token)
 
     def get_current_user_from_token(
         self,
@@ -66,21 +75,21 @@ class AuthService:
     ) -> UserOut:
         public_key = get_jwt_public_key()
         if not public_key:
-            raise ValueError("JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH must be set for RS256")
+            raise InvalidTokenError("JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH must be set for RS256")
         try:
             payload = jwt.decode(
                 token,
                 public_key,
                 algorithms=[settings.JWT_ALGORITHM],
             )
-            username: Optional[str] = payload.get("sub")
+            username = payload.get("sub")
             if username is None:
-                raise ValueError("Invalid token")
+                raise InvalidTokenError("Invalid token")
         except JWTError:
-            raise ValueError("Could not validate credentials")
+            raise InvalidTokenError("Could not validate credentials")
         user = self.repo.get_by_username(username)
         if user is None:
-            raise ValueError("User not found")
+            raise InvalidTokenError("User not found")
         return UserOut(username=user.username, email=user.email)
 
     async def login_or_register_oidc(
@@ -97,9 +106,12 @@ class AuthService:
         existing = self.repo.get_by_federated(provider, subject_id)
         if existing:
             access_token = create_access_token(data={"sub": existing.username})
+            refresh_token = create_refresh_token()
+            expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+            self.repo.save_refresh_token(existing.username, refresh_token, expires_at)
             return (
                 UserOut(username=existing.username, email=existing.email),
-                Token(access_token=access_token),
+                Token(access_token=access_token, refresh_token=refresh_token),
                 False,
             )
 
@@ -115,8 +127,11 @@ class AuthService:
             UserCreatedEvent(user_id=user.username, username=user.username, email=email or "")
         )
         access_token = create_access_token(data={"sub": user.username})
+        refresh_token = create_refresh_token()
+        expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        self.repo.save_refresh_token(user.username, refresh_token, expires_at)
         return (
             UserOut(username=user.username, email=user.email),
-            Token(access_token=access_token),
+            Token(access_token=access_token, refresh_token=refresh_token),
             True,
         )

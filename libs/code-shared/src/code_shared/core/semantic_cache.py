@@ -12,8 +12,6 @@ from redis.commands.search.field import TextField, VectorField
 from redis.commands.search.index_definition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
 
-from code_shared.core.config import settings
-
 logger = logging.getLogger(__name__)
 
 CACHE_PREFIX = "rag_cache:"
@@ -42,16 +40,14 @@ class SemanticCache:
     def __init__(
         self,
         redis_url: str = "",
-        ttl_seconds: Optional[int] = None,
-        similarity_threshold: Optional[float] = None,
-        embed_dim: Optional[int] = None,
+        ttl_seconds: int = 86400,
+        similarity_threshold: float = 0.95,
+        embed_dim: int = 3072,
     ) -> None:
-        self.redis_url = redis_url or settings.REDIS_URL
-        self.ttl_seconds = ttl_seconds if ttl_seconds is not None else settings.CACHE_TTL_SECONDS
-        self.similarity_threshold = (
-            similarity_threshold if similarity_threshold is not None else settings.CACHE_SIMILARITY_THRESHOLD
-        )
-        self.embed_dim = embed_dim or settings.CACHE_EMBED_DIM
+        self.redis_url = redis_url or ""
+        self.ttl_seconds = ttl_seconds
+        self.similarity_threshold = similarity_threshold
+        self.embed_dim = embed_dim
         self._client: Optional[redis.Redis] = None
         self._enabled = bool(self.redis_url.strip())
 

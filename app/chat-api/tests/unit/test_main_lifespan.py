@@ -32,13 +32,16 @@ class _FakeReranker:
 async def test_lifespan_initializes_and_cleans_up(monkeypatch: pytest.MonkeyPatch):
     fake_db = _FakeDB()
 
+    # Ensure startup doesn't fail fast due to missing env in unit tests.
+    monkeypatch.setattr(main_module.settings, "OPENAI_API_KEY", "test-key", raising=False)
+
     # Patch constructors used inside lifespan.
-    monkeypatch.setattr(main_module, "WeaviateClient", lambda: fake_db)
+    monkeypatch.setattr(main_module, "WeaviateClient", lambda *args, **kwargs: fake_db)
     monkeypatch.setattr(main_module, "OpenAILLM", lambda *args, **kwargs: _FakeLLM())
     monkeypatch.setattr(main_module, "BM25Reranker", lambda top_k: _FakeReranker(top_k))
     monkeypatch.setattr(main_module, "CohereReranker", lambda top_k: _FakeReranker(top_k))
     fake_cache = type("_FakeCache", (), {"enabled": False, "close": lambda self: None})()
-    monkeypatch.setattr(main_module, "SemanticCache", lambda: fake_cache)
+    monkeypatch.setattr(main_module, "SemanticCache", lambda *args, **kwargs: fake_cache)
 
     app = main_module.app
 

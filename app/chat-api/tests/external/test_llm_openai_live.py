@@ -2,7 +2,7 @@ import pytest
 
 from code_shared.llm import OpenAILLM
 
-from code_shared.core import settings
+from src.api.core.config import settings
 
 
 @pytest.mark.external

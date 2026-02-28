@@ -1,0 +1,10 @@
+fastapi[standard]
+uvicorn
+pymongo>=4.7.0
+python-jose[cryptography]>=3.3.0
+pydantic
+pydantic-settings
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+httpx>=0.24.0

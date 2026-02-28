@@ -1,20 +1,19 @@
 """
 Weaviate collection schema definition.
+Caller passes class_name (each service has its own config).
 """
 from weaviate.classes.config import Configure, DataType, Property
 
-from code_shared.core.config import settings
 
-
-def init_schema(client, recreate: bool = False) -> None:
+def init_schema(client, class_name: str, recreate: bool = False) -> None:
     """
     Create or recreate the document chunk embedding collection.
     """
-    if client.collections.exists(settings.WEAVIATE_CLASS_NAME):
-        client.collections.delete(settings.WEAVIATE_CLASS_NAME)
+    if client.collections.exists(class_name):
+        client.collections.delete(class_name)
 
     client.collections.create(
-        name=settings.WEAVIATE_CLASS_NAME,
+        name=class_name,
         properties=[
             Property(name="text", data_type=DataType.TEXT),
             Property(name="source", data_type=DataType.TEXT),

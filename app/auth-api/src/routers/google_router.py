@@ -1,23 +1,26 @@
-"""
-Google OIDC: GET /auth/login/google (redirect to Google), GET /auth/callback/google (exchange code, issue token, redirect to frontend).
-"""
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import RedirectResponse
 from jose import jwt as jose_jwt
 
+from code_shared.core.exceptions import AppError
+
 from src.core.config import settings
-from src.core.external.google import google_auth
 from src.core.dependency import get_auth_service
+from src.core.external.google import google_auth
 from src.service.auth_service import AuthService
+
+# ---------------------- Set up -------------------->
 
 router = APIRouter(prefix="/auth", tags=["auth", "oidc"])
 
+# ---------------------- Login via Google ------------------------>
 
 @router.get("/login/google")
 async def login_google(request: Request):
     redirect_uri = str(request.url_for("auth_callback_google"))
     return await google_auth.google.authorize_redirect(request, redirect_uri)
 
+# --------------------- Callback url ----------------------->
 
 @router.get("/callback/google", name="auth_callback_google")
 async def callback_google(
@@ -58,16 +61,26 @@ async def callback_google(
             status_code=302,
         )
     try:
-        _, access_token_obj, _ = await service.login_or_register_oidc(
+        _, token, _ = await service.login_or_register_oidc(
             "google", sub, email, name
         )
-    except Exception as e:
+    except AppError as e:
         return RedirectResponse(
-            url=f"{settings.FRONTEND_URL}?error=oauth&message={e!s}",
+            url=f"{settings.FRONTEND_URL}?error=oauth&message={e.message!s}",
             status_code=302,
         )
     frontend = settings.FRONTEND_URL.rstrip("/")
-    return RedirectResponse(
-        url=f"{frontend}?token={access_token_obj.access_token}",
+    response = RedirectResponse(
+        url=f"{frontend}?access_token={token.access_token}",
         status_code=302,
     )
+    response.set_cookie(
+        key="refresh_token",
+        value=token.refresh_token,
+        httponly=True,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        samesite="lax",
+        secure=False,
+        path="/",
+    )
+    return response

@@ -9,12 +9,9 @@ from llama_index.llms.openai import OpenAI
 
 from code_shared.llm.base import BaseLLM
 
-# Default prompts shipped with the package
-_DEFAULT_PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
-
 
 class OpenAILLM(BaseLLM):
-    """OpenAI-based LLM with system and answer-style prompts."""
+    """OpenAI-based LLM with optional system and answer-style prompts (caller provides prompt_dir)."""
 
     def __init__(
         self,
@@ -23,12 +20,18 @@ class OpenAILLM(BaseLLM):
         prompt_dir: Optional[Path] = None,
     ) -> None:
         self.llm = OpenAI(model=model, api_key=api_key)
-        self._prompt_dir = Path(prompt_dir) if prompt_dir else _DEFAULT_PROMPTS_DIR
-        self.system_prompt = self._load_prompt("system_prompt.txt")
-        self.answer_style = self._load_prompt("answer_style.txt")
+        self._prompt_dir = Path(prompt_dir) if prompt_dir else None
+        if self._prompt_dir is not None:
+            self.system_prompt = self._load_prompt("system_prompt.txt")
+            self.answer_style = self._load_prompt("answer_style.txt")
+        else:
+            self.system_prompt = ""
+            self.answer_style = ""
 
     def _load_prompt(self, filename: str) -> str:
         """Load prompt text from file."""
+        if self._prompt_dir is None:
+            return ""
         path = self._prompt_dir / filename
         return path.read_text(encoding="utf-8").strip()
 

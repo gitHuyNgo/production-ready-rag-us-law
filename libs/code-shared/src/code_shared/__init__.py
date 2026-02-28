@@ -1,24 +1,12 @@
-"""Shared code for microservices."""
+"""
+Shared code for microservices.
 
-from code_shared.llm import BaseLLM, OpenAILLM
-from code_shared.core import (
-    BaseVectorStore,
-    SemanticCache,
-    Settings,
-    WeaviateClient,
-    get_env_file,
-    init_schema,
-    settings,
-)
+Keep this package `__init__` lightweight: do not import optional/heavy deps at
+import time. Import from submodules directly, e.g.:
 
-__all__ = [
-    "BaseLLM",
-    "OpenAILLM",
-    "BaseVectorStore",
-    "SemanticCache",
-    "Settings",
-    "WeaviateClient",
-    "get_env_file",
-    "init_schema",
-    "settings",
-]
+- `from code_shared.core.exceptions import AppError`
+- `from code_shared.core.db_client import WeaviateClient`
+- `from code_shared.llm.openai_llm import OpenAILLM`
+"""
+
+__all__: list[str] = []
