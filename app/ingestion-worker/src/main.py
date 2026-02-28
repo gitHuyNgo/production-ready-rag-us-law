@@ -3,7 +3,9 @@ Ingestion script entrypoint: load PDFs from data folder into vector store.
 """
 import argparse
 
-from code_shared.core import WeaviateClient, SemanticCache
+from src.core.config import settings
+from src.vector_store import WeaviateClient
+from src.semantic_cache import SemanticCache
 from src.ingest import IngestionProcessor
 
 
@@ -24,7 +26,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    db = WeaviateClient()
+    if not settings.OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is required to run ingestion-worker")
+
+    db = WeaviateClient(
+        weaviate_url=settings.WEAVIATE_URL,
+        weaviate_class_name=settings.WEAVIATE_CLASS_NAME,
+        openai_api_key=settings.OPENAI_API_KEY,
+        openai_embedding_model=settings.OPENAI_EMBEDDING_MODEL,
+    )
     try:
         db.connect()
         if args.recreate:
@@ -32,7 +42,12 @@ def main() -> None:
             print("Collection recreated (existing data removed).")
         processor = IngestionProcessor(vector_store=db)
         processor.run(str(args.data))
-        cache = SemanticCache()
+        cache = SemanticCache(
+            redis_url=settings.REDIS_URL,
+            ttl_seconds=settings.CACHE_TTL_SECONDS,
+            similarity_threshold=settings.CACHE_SIMILARITY_THRESHOLD,
+            embed_dim=settings.CACHE_EMBED_DIM,
+        )
         if cache.enabled:
             cache.flush()
             cache.close()

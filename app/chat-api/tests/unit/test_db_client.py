@@ -2,7 +2,8 @@ from typing import Any, Dict, List
 
 import pytest
 
-from code_shared.core import WeaviateClient, settings
+from src.api.core.config import settings
+from src.vector_store.weaviate_client import WeaviateClient
 
 
 class _FakeWeaviateCollection:
@@ -82,8 +83,8 @@ def patched_weaviate(monkeypatch: pytest.MonkeyPatch):
     fake_embed = _FakeEmbedModel()
 
     # Patch external dependencies inside db_client module.
-    monkeypatch.setattr("code_shared.core.db_client.weaviate.connect_to_local", lambda *args, **kwargs: fake_client)
-    monkeypatch.setattr("code_shared.core.db_client.OpenAIEmbedding", lambda *args, **kwargs: fake_embed)
+    monkeypatch.setattr("src.vector_store.weaviate_client.weaviate.connect_to_local", lambda *args, **kwargs: fake_client)
+    monkeypatch.setattr("src.vector_store.weaviate_client.OpenAIEmbedding", lambda *args, **kwargs: fake_embed)
 
     return fake_client, fake_embed
 
@@ -91,7 +92,12 @@ def patched_weaviate(monkeypatch: pytest.MonkeyPatch):
 def test_weaviate_client_connect_and_close(patched_weaviate):
     fake_client, _ = patched_weaviate
 
-    client = WeaviateClient()
+    client = WeaviateClient(
+        weaviate_url=settings.WEAVIATE_URL,
+        weaviate_class_name=settings.WEAVIATE_CLASS_NAME,
+        openai_api_key="test-key",
+        openai_embedding_model=settings.OPENAI_EMBEDDING_MODEL,
+    )
     returned = client.connect()
 
     assert returned is fake_client
@@ -104,7 +110,12 @@ def test_weaviate_client_connect_and_close(patched_weaviate):
 def test_weaviate_client_batch_load_and_retrieve(patched_weaviate):
     fake_client, fake_embed = patched_weaviate
 
-    client = WeaviateClient()
+    client = WeaviateClient(
+        weaviate_url=settings.WEAVIATE_URL,
+        weaviate_class_name=settings.WEAVIATE_CLASS_NAME,
+        openai_api_key="test-key",
+        openai_embedding_model=settings.OPENAI_EMBEDDING_MODEL,
+    )
     client.connect()
 
     docs = [{"text": "some law", "source": "law.pdf"}]
@@ -124,7 +135,12 @@ def test_weaviate_client_batch_load_and_retrieve(patched_weaviate):
 def test_weaviate_client_initialize_schema_is_callable(patched_weaviate):
     fake_client, _ = patched_weaviate
 
-    client = WeaviateClient()
+    client = WeaviateClient(
+        weaviate_url=settings.WEAVIATE_URL,
+        weaviate_class_name=settings.WEAVIATE_CLASS_NAME,
+        openai_api_key="test-key",
+        openai_embedding_model=settings.OPENAI_EMBEDDING_MODEL,
+    )
     client.connect()
 
     client.initialize_schema(recreate=False)
@@ -139,7 +155,12 @@ def test_weaviate_client_initialize_schema_is_callable(patched_weaviate):
 def test_weaviate_client_initialize_schema_raises_without_connect(patched_weaviate):
     _, _ = patched_weaviate
 
-    client = WeaviateClient()
+    client = WeaviateClient(
+        weaviate_url=settings.WEAVIATE_URL,
+        weaviate_class_name=settings.WEAVIATE_CLASS_NAME,
+        openai_api_key="test-key",
+        openai_embedding_model=settings.OPENAI_EMBEDDING_MODEL,
+    )
     # Do not call connect(); client.client is None
 
     with pytest.raises(RuntimeError, match="Connect before calling initialize_schema"):

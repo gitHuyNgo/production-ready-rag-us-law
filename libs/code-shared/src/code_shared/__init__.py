@@ -1,24 +1,11 @@
-"""Shared code for microservices."""
+"""
+Shared code for microservices (exceptions, LLM).
 
-from code_shared.llm import BaseLLM, OpenAILLM
-from code_shared.core import (
-    BaseVectorStore,
-    SemanticCache,
-    Settings,
-    WeaviateClient,
-    get_env_file,
-    init_schema,
-    settings,
-)
+Weaviate and Redis/semantic cache live in chat-api; ingestion-worker has its own
+vector_store and semantic_cache for write/flush. Import from submodules, e.g.:
 
-__all__ = [
-    "BaseLLM",
-    "OpenAILLM",
-    "BaseVectorStore",
-    "SemanticCache",
-    "Settings",
-    "WeaviateClient",
-    "get_env_file",
-    "init_schema",
-    "settings",
-]
+- `from code_shared.core.exceptions import AppError`
+- `from code_shared.llm import OpenAILLM`
+"""
+
+__all__: list[str] = []

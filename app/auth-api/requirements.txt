@@ -1,0 +1,16 @@
+# Install shared lib from repo root: pip install -e libs/code-shared
+fastapi[standard]
+uvicorn
+SQLAlchemy
+psycopg2-binary
+python-jose
+passlib[argon2]
+pydantic
+pydantic-settings
+Authlib
+pytest
+pytest-asyncio
+pytest-cov
+httpx
+aiokafka
+itsdangerous

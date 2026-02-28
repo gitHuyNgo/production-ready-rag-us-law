@@ -8,7 +8,7 @@ from src.api.services.rag_pipeline import (
 )
 from code_shared.llm import BaseLLM
 
-from code_shared.core import BaseVectorStore
+from src.vector_store.base import BaseVectorStore
 
 
 class _FakeVectorStore(BaseVectorStore):

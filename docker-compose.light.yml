@@ -1,0 +1,146 @@
+---
+# Same as docker-compose.yml but without Cassandra, Zookeeper, or Kafka.
+# Chat-api falls back to in-memory chat memory; auth-api uses in-memory event publisher.
+# Usage: docker compose -f docker-compose.light.yml up -d
+
+services:
+  redis:
+    image: redis/redis-stack:latest
+    ports:
+      - "6379:6379"
+      - "8003:8001"   # Redis Insight UI on 8003; 8001 reserved for auth-api
+    volumes:
+      - redis_data:/data
+    restart: on-failure
+
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.30.0
+    command: ["--host", "0.0.0.0", "--port", "8080", "--scheme", "http"]
+    ports:
+      - "8081:8080"   # Weaviate on host 8081; 8080 reserved for api-gateway
+      - "50051:50051"
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: none
+      ENABLE_MODULES: ""
+      CLUSTER_HOSTNAME: node1
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: on-failure
+
+  auth-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    restart: on-failure
+
+  user-db:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - user_db_data:/data/db
+    restart: on-failure
+
+  chat-api:
+    build:
+      context: .
+      dockerfile: app/chat-api/Dockerfile
+    env_file:
+      - ./app/.env
+    ports:
+      - "8000:8000"
+    environment:
+      WEAVIATE_URL: http://weaviate:8080
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      weaviate:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: on-failure
+
+  frontend:
+    build:
+      context: app/frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8080
+        VITE_WS_URL: ws://localhost:8080
+    ports:
+      - "3000:80"
+    depends_on:
+      - chat-api
+    restart: on-failure
+
+  auth-api:
+    build:
+      context: .
+      dockerfile: app/auth-api/Dockerfile
+    env_file:
+      - ./app/auth-api/.env
+    ports:
+      - "8001:8001"
+    environment:
+      AUTH_DB_URL: postgresql+psycopg2://auth_user:auth_pass@auth-db:5432/auth_db
+      JWT_ALGORITHM: RS256
+      JWT_PRIVATE_KEY_PATH: /run/secrets/auth_private.pem
+      JWT_PUBLIC_KEY_PATH: /run/secrets/auth_public.pem
+    volumes:
+      - ./app/auth-api/private.pem:/run/secrets/auth_private.pem:ro
+      - ./app/auth-api/public.pem:/run/secrets/auth_public.pem:ro
+    depends_on:
+      auth-db:
+        condition: service_started
+    restart: on-failure
+
+  user-api:
+    build:
+      context: .
+      dockerfile: app/user-api/Dockerfile
+    env_file:
+      - ./app/.env
+    ports:
+      - "8002:8002"
+    depends_on:
+      user-db:
+        condition: service_started
+    restart: on-failure
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: app/api-gateway/Dockerfile
+    env_file:
+      - ./app/.env
+    ports:
+      - "8080:8080"
+    environment:
+      AUTH_API_URL: http://auth-api:8001
+      USER_API_URL: http://user-api:8002
+      CHAT_API_URL: http://chat-api:8000
+    depends_on:
+      - auth-api
+      - user-api
+      - chat-api
+    restart: on-failure
+
+volumes:
+  redis_data:
+  weaviate_data:
+  auth_db_data:
+  user_db_data:

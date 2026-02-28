@@ -1,17 +1,24 @@
-"""Shared core: config, vector store, semantic cache."""
+"""
+Shared core utilities.
 
-from code_shared.core.config import Settings, get_env_file, settings
-from code_shared.core.base_db import BaseVectorStore
-from code_shared.core.schema import init_schema
-from code_shared.core.db_client import WeaviateClient
-from code_shared.core.semantic_cache import SemanticCache
+Keep this package `__init__` lightweight: do not import optional/heavy deps at
+import time (e.g. llama-index, weaviate). Import those from submodules.
+"""
+
+from code_shared.core.exceptions import (  # re-export, lightweight
+    AppError,
+    BadRequestError,
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    UnauthorizedError,
+)
 
 __all__ = [
-    "Settings",
-    "get_env_file",
-    "settings",
-    "BaseVectorStore",
-    "init_schema",
-    "WeaviateClient",
-    "SemanticCache",
+    "AppError",
+    "BadRequestError",
+    "ConflictError",
+    "ForbiddenError",
+    "NotFoundError",
+    "UnauthorizedError",
 ]

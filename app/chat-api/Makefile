@@ -2,10 +2,10 @@
 SHELL := /bin/bash
 SCRIPTS := scripts
 
-# Shared env file (app/.env); override with make APP_ENV_FILE=/path/to/.env
-APP_ENV_FILE ?= ../.env
+# Local .env in this service dir; override with make APP_ENV_FILE=/path/to/.env
+APP_ENV_FILE ?= .env
 export APP_ENV_FILE
-export PYTHONPATH := .
+export PYTHONPATH := .:../../libs/code-shared/src
 
 .PHONY: help test server serve
 

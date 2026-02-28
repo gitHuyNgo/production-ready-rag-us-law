@@ -1,9 +1,11 @@
 # Install shared lib first (from repo root): pip install -e libs/code-shared
 # Then: pip install -r app/ingestion-worker/requirements.txt
 
-# PDF and chunking (vector store, cache, config come from code-shared)
+# PDF and chunking; vector store and cache are local to this service
 llama-index
 docling
+weaviate-client
+redis
 
 # Testing
 pytest>=7.4.0

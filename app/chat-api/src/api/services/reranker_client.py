@@ -7,7 +7,7 @@ import cohere
 from rank_bm25 import BM25Okapi
 
 from src.api.services.base_reranker import BaseReranker
-from code_shared.core import settings
+from src.api.core.config import settings
 
 
 class BM25Reranker(BaseReranker):
