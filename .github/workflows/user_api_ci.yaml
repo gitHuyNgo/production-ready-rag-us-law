@@ -30,6 +30,12 @@ jobs:
       - name: Install user-api dependencies
         run: pip install -r app/user-api/requirements.txt
 
+      - name: Generate test JWT keys
+        run: |
+          mkdir -p app/user-api/tests/fixtures
+          openssl genrsa -out app/user-api/tests/fixtures/rsa_private.pem 2048
+          openssl rsa -in app/user-api/tests/fixtures/rsa_private.pem -pubout -out app/user-api/tests/fixtures/rsa_public.pem
+
       - name: Run user-api tests
         working-directory: app/user-api
         env:

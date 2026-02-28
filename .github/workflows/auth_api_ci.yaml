@@ -30,6 +30,12 @@ jobs:
       - name: Install auth-api dependencies
         run: pip install -r app/auth-api/requirements.txt
 
+      - name: Generate test JWT keys
+        run: |
+          mkdir -p app/auth-api/tests/fixtures
+          openssl genrsa -out app/auth-api/tests/fixtures/rsa_private.pem 2048
+          openssl rsa -in app/auth-api/tests/fixtures/rsa_private.pem -pubout -out app/auth-api/tests/fixtures/rsa_public.pem
+
       - name: Run auth-api tests
         working-directory: app/auth-api
         env:
