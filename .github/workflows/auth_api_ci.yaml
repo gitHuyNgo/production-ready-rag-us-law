@@ -22,10 +22,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install auth-api dependencies
+      - name: Install shared lib
         run: |
           python -m pip install --upgrade pip
-          pip install -r app/auth-api/requirements.txt
+          pip install -e libs/code-shared
+
+      - name: Install auth-api dependencies
+        run: pip install -r app/auth-api/requirements.txt
 
       - name: Run auth-api tests
         working-directory: app/auth-api
