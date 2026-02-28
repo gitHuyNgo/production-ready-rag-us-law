@@ -26,12 +26,15 @@ except ImportError:  # e.g. tests without DB
 class PostgreAuthRepository(BaseAuthRepository):
     """
     Repository backed by PostgreSQL when available, otherwise an in‑memory store.
+    When DB is unavailable, all instances share the same in-memory dicts so that
+    register and login (which get different dependency-injected instances) see the same data.
     """
 
+    _memory_users: Dict[str, User] = {}
+    _memory_federated: Dict[Tuple[str, str], str] = {}
+
     def __init__(self) -> None:
-        # In‑memory fallback (used if init_db() failed or AUTH_DB_URL unset)
-        self._memory_users: Dict[str, User] = {}
-        self._memory_federated: Dict[Tuple[str, str], str] = {}
+        pass
 
     def _use_db(self) -> bool:
         try:
