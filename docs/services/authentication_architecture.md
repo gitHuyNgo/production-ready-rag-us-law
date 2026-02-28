@@ -1,102 +1,58 @@
 # Authentication & User Management Architecture
 
-This document outlines the architecture and data flows for the newly introduced microservices: `auth_service`, `user_service`, and the `rest-gateway`.
+This document outlines the architecture and data flows for the auth-api, user-api, and the API Gateway.
 
 ## Architectural Overview
 
-To handle user identity, security, and profile management, the system utilizes a decoupled microservices approach driven by an API Gateway and asynchronous event streaming.
+User identity, security, and profile management are handled by a decoupled microservices setup behind a single API Gateway.
 
-- **REST Gateway**: The single entry point for client applications. Handles token validation.
-- **Auth Service**: Manages identity, credentials, JWT generation, and OpenID Connect (OIDC) flows.
-- **User Service**: A dedicated CRUD service for non-security user profile data.
-- **Kafka (Pub/Sub)**: Facilitates asynchronous communication between Auth and User services.
-
----
-
-## 1. Auth Service (`auth_service`)
-
-The Auth Service is strictly responsible for identity verification and token lifecycle management.
-
-### Security Mechanism
-
-- **Asymmetric Cryptography (RS256)**: The service uses a **Private Key** (PEM) to sign and generate JWT access tokens. Configure via `JWT_PRIVATE_KEY` or `JWT_PRIVATE_KEY_PATH` in auth-api.
-- **Public Key Distribution**: The corresponding **Public Key** (PEM) is used by the API Gateway and User API to verify tokens. Configure via `JWT_PUBLIC_KEY` or `JWT_PUBLIC_KEY_PATH` in api-gateway and user-api. Auth-api also needs the public key for verifying tokens on endpoints like `/me`.
-
-### Database Models
-
-_Implementation Note: While the Auth service utilizes PostgreSQL for robust relational mapping of credentials and federated identities, the ORM/ODM models are structured as follows:_
-
-```python
-# Core User Identity
-class User(Document):
-    username: str
-    email: str
-    password: str = "" # Empty if registered exclusively via OIDC (remember to hash before put in)
-
-# OpenID Connect / Federated Login Mapping
-class Federated(Document):
-    user_id: str
-    provider: str      # e.g., 'google', 'github'
-    subject_id: str    # The unique ID provided by the external identity provider
-
-# Token Lifecycle Management
-class RefreshToken(Document):
-    token: str
-    user_id: PydanticObjectId
-    expires_at: datetime
-    revoked: bool = False
-    created_at: datetime = Field(default_factory=datetime.now)
-```
-
-### Authentication Flows
-
-#### Standard Login Flow
-
-1. Client submits credentials.
-2. `auth_service` verifies credentials and generates a short-lived access_token and a long-lived `refresh_token`.
-3. If the `access_token` expires, the client submits the `refresh_token`. The service checks the database to ensure it exists, has not expired, and is not `revoked` before issuing a new `access_token`.
-
-#### OIDC Authentication Flo(Google)
-
-The system supports federated login via external providers. Below is the sequence for the Google OIDC flow:
-
-```mermaid
-sequenceDiagram
-    actor User as User | Browser
-    participant API as Auth Service
-    participant Google as Provider (Google)
-
-    User->>API: GET /auth/login/google
-    API->>User: redirect to google (HTTP 302)
-    User->>Google: login to google account
-
-    %% Implicitly implemented steps (highlighted in light red)
-    rect rgb(255, 245, 245)
-    Note right of User: Implicitly Implemented (Redirects)
-    Google->>User: 302 Redirect /auth/callback/google?code=...
-    User->>API: GET /auth/callback/google?code=...
-    end
-
-    API->>Google: POST: [https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)
-
-    Note right of API: Payload:<br/>{ "code": "AuthCode_987...",<br/>"client_id": "id",<br/>"client_secret": "sec",<br/>"redirect_uri": "auth/callback/google",<br/>"grant_type": "authorization_code" }
-
-    Google-->>API: return id_token & access_token
-
-    API->>API: Validate token + Check login / Sign up
-    API->>User: Redirect to dashboard with application tokens
-```
-
-#### Event Streaming (Kafka)
-
-Upon successful new user registration (via standard sign-up or first-time OIDC login), the `auth_service` publishes a `UserCreated` event to an Apache Kafka topic. This ensures downstream services are notified without creating synchronous bottlenecks.
+- **API Gateway**: Single entry point. Validates JWT (RS256 with auth-api’s public key), rate limits, and proxies to backend services. Does not store user data.
+- **Auth API**: Identity, credentials, JWT issuance, refresh tokens, and OIDC (e.g. Google). Uses PostgreSQL (or in-memory fallback when DB is unavailable).
+- **User API**: Profile CRUD (display name, bio, etc.). Uses MongoDB. Validates JWT with the same public key; does not store passwords.
+- **Event streaming (optional)**: Auth-api can publish `UserCreated` events (e.g. to Kafka) for downstream provisioning; in light setups this may be in-memory or disabled.
 
 ---
 
-## 2. User Service (`user_service`)
+## 1. Auth API
 
-The User Service handles all application-level user profile data (e.g., display names, preferences, avatars).
+The Auth API is responsible for identity verification and token lifecycle.
 
-- **Database:** Utilizes **MongoDB** for flexible, document-based storage of user profiles.
-- **Data Security: Strictly does not store passwords or security credentials**. It only stores references (like `user_id`) to map back to the Auth Service.
-- **Lifecycle:** Acts as a Kafka consumer. When it receives a `UserCreated` event from the `auth_service`, it provisions a new profile document in MongoDB for that user. It also provides standard CRUD REST endpoints for updating profile information.
+### Security
+
+- **RS256**: Private key (PEM) signs access tokens; public key (PEM) is used by the gateway and user-api to verify. Configure via `JWT_PRIVATE_KEY` / `JWT_PRIVATE_KEY_PATH` and `JWT_PUBLIC_KEY` / `JWT_PUBLIC_KEY_PATH`.
+- **Passwords**: Argon2 (Passlib); only hashes are stored.
+- **Refresh tokens**: Stored in PostgreSQL (one per user, updated on login); used to issue new access tokens without re-entering password.
+
+### Data Model (PostgreSQL / SQLAlchemy)
+
+When `AUTH_DB_URL` is set and init succeeds, the following models are used:
+
+- **UserModel** (`users`): `username` (PK), `email`, `password` (hash).
+- **FederatedModel** (`federated`): `provider`, `subject_id` (PK), `user_id` — OIDC mapping.
+- **RefreshTokenModel** (`refresh_tokens`): `user_id` (PK), `token`, `expires_at`, `revoked`.
+
+When DB is unavailable, `PostgreAuthRepository` uses a shared **in-memory** dict so register and login still work (e.g. tests, dev without Postgres).
+
+### Flows
+
+- **Register**: POST `/auth/register` with username, email, password → hash password, create user, (optionally) publish UserCreated.
+- **Login**: POST `/auth/token` (form: username, password) → verify credentials, create access + refresh tokens, set refresh_token cookie, store refresh token in DB.
+- **Me**: GET `/auth/me` with Bearer token → decode JWT, load user by `sub`, return username/email.
+- **OIDC (Google)**: GET `/auth/login/google` → redirect to Google; GET `/auth/callback/google?code=...` → exchange code, validate id_token, find or create user and federated row, set cookies and redirect with app tokens.
+
+---
+
+## 2. User API
+
+- **Role**: Application-level user profile data only. No passwords or credentials.
+- **Storage**: MongoDB; documents keyed by `user_id` (JWT `sub`).
+- **Auth**: Every request requires a valid Bearer token; user-api verifies it with the auth-api public key and uses `sub` as the profile id.
+- **Endpoints**: GET/PUT `/profiles/me` to read and update the current user’s profile.
+
+---
+
+## 3. Gateway
+
+- Validates JWT on protected routes; public routes (e.g. `/auth/register`, `/auth/token`, `/health`) do not require a token.
+- Forwards requests to auth-api, user-api, or chat-api and adds `X-User-Id` when the token is valid.
+- See [API Gateway](../api/api-gateway.md) for routing and proxy details.
