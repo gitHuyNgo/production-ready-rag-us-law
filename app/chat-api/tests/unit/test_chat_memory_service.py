@@ -12,7 +12,7 @@ def test_chat_memory_service_appends_and_reads_back_in_order():
     session_id = "session-1"
 
     # Seed some existing messages with older timestamps
-    earlier = datetime.utcnow() - timedelta(minutes=10)
+    earlier = datetime.now() - timedelta(minutes=10)
     store.append_messages(
         [
             ChatMessageRecord(

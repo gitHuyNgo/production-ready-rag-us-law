@@ -1,6 +1,6 @@
 """
-Semantic cache for RAG: store (query_embedding, LLM_response) in Redis with vector similarity lookup.
-Requires Redis Stack (RediSearch with vector support).
+Semantic cache for RAG (chat-api): Redis Stack vector similarity lookup.
+Store (query_embedding, LLM_response) and match by embedding similarity.
 """
 import logging
 import uuid

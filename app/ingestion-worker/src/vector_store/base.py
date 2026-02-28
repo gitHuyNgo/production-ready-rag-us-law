@@ -1,6 +1,4 @@
-"""
-Abstract base class for vector store implementations.
-"""
+"""Abstract base for vector store."""
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
@@ -10,20 +8,16 @@ class BaseVectorStore(ABC):
 
     @abstractmethod
     def connect(self) -> None:
-        """Establish connection to the vector store."""
         pass  # pragma: no cover
 
     @abstractmethod
     def retrieve(self, query: str, top_k: int = 10) -> List[Dict[str, Any]]:
-        """Retrieve top-k documents by similarity to query."""
         pass  # pragma: no cover
 
     @abstractmethod
     def batch_load(self, items: List[Dict[str, Any]]) -> None:
-        """Load a batch of items into the vector store."""
         pass  # pragma: no cover
 
     @abstractmethod
     def close(self) -> None:
-        """Close connection and release resources."""
         pass  # pragma: no cover

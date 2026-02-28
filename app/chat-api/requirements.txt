@@ -1,9 +1,11 @@
 # Install shared lib first (from repo root): pip install -e libs/code-shared
 # Then: pip install -r app/chat-api/requirements.txt
 
-### Core RAG stack (vector store, cache, config from code-shared)
+### Core RAG stack (vector store and semantic cache live in chat-api)
 docling
 llama-index
+weaviate-client
+redis
 
 ### API and web
 fastapi[standard]
@@ -32,9 +34,11 @@ faker>=18.0.0
 # Install shared lib first (from repo root): pip install -e libs/code-shared
 # Then: pip install -r app/chat-api/requirements.txt
 
-### Core RAG stack (vector store, cache, config from code-shared)
+### Core RAG stack (vector store and semantic cache live in chat-api)
 docling
 llama-index
+weaviate-client
+redis
 
 ### API and web
 fastapi[standard]

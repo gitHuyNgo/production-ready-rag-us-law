@@ -18,7 +18,7 @@ def _make_token(sub: str) -> str:
     private_pem = _TEST_PRIVATE_KEY_PATH.read_text() if _TEST_PRIVATE_KEY_PATH.is_file() else ""
     if not private_pem:
         raise RuntimeError("Test fixture rsa_private.pem not found; run key generation script.")
-    payload = {"sub": sub, "exp": datetime.utcnow() + timedelta(minutes=5)}
+    payload = {"sub": sub, "exp": datetime.now() + timedelta(minutes=5)}
     return jwt.encode(payload, private_pem, algorithm=settings.JWT_ALGORITHM)
 
 

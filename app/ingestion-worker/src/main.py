@@ -3,9 +3,9 @@ Ingestion script entrypoint: load PDFs from data folder into vector store.
 """
 import argparse
 
-from code_shared.core.db_client import WeaviateClient
-from code_shared.core.semantic_cache import SemanticCache
 from src.core.config import settings
+from src.vector_store import WeaviateClient
+from src.semantic_cache import SemanticCache
 from src.ingest import IngestionProcessor
 
 

@@ -1,12 +1,11 @@
 """
-Shared code for microservices.
+Shared code for microservices (exceptions, LLM).
 
-Keep this package `__init__` lightweight: do not import optional/heavy deps at
-import time. Import from submodules directly, e.g.:
+Weaviate and Redis/semantic cache live in chat-api; ingestion-worker has its own
+vector_store and semantic_cache for write/flush. Import from submodules, e.g.:
 
 - `from code_shared.core.exceptions import AppError`
-- `from code_shared.core.db_client import WeaviateClient`
-- `from code_shared.llm.openai_llm import OpenAILLM`
+- `from code_shared.llm import OpenAILLM`
 """
 
 __all__: list[str] = []

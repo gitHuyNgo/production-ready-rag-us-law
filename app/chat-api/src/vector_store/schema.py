@@ -1,14 +1,9 @@
-"""
-Weaviate collection schema definition.
-Caller passes class_name (each service has its own config).
-"""
+"""Weaviate collection schema. Caller passes class_name (from chat-api config)."""
 from weaviate.classes.config import Configure, DataType, Property
 
 
 def init_schema(client, class_name: str, recreate: bool = False) -> None:
-    """
-    Create or recreate the document chunk embedding collection.
-    """
+    """Create or recreate the document chunk embedding collection."""
     if client.collections.exists(class_name):
         client.collections.delete(class_name)
 

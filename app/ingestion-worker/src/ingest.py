@@ -4,7 +4,7 @@ Ingestion pipeline: load PDFs, chunk, and index into vector store.
 from pathlib import Path
 from typing import List
 
-from code_shared.core.base_db import BaseVectorStore
+from src.vector_store.base import BaseVectorStore
 from src.chunker import LegalChunker
 
 

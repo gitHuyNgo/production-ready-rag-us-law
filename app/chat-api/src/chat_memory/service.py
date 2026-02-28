@@ -24,7 +24,7 @@ class ChatMemoryService:
         user_message: str,
         assistant_message: str,
     ) -> None:
-        now = datetime.utcnow()
+        now = datetime.now()
         records = [
             ChatMessageRecord(
                 session_id=session_id,

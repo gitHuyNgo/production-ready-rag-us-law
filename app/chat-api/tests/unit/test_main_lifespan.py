@@ -44,6 +44,9 @@ async def test_lifespan_initializes_and_cleans_up(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(main_module, "SemanticCache", lambda *args, **kwargs: fake_cache)
 
     app = main_module.app
+    # Clear state so lifespan runs real init (other tests' test_client may have set app.state).
+    app.state.db = None
+    app.state.llm = None
 
     async with app.router.lifespan_context(app):
         # Inside lifespan: resources should be initialized and attached to state.

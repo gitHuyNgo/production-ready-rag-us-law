@@ -122,11 +122,17 @@ services:
       context: .
       dockerfile: app/auth-api/Dockerfile
     env_file:
-      - ./app/.env
+      - ./app/auth-api/.env
     ports:
       - "8001:8001"
     environment:
       AUTH_DB_URL: postgresql+psycopg2://auth_user:auth_pass@auth-db:5432/auth_db
+      JWT_ALGORITHM: RS256
+      JWT_PRIVATE_KEY_PATH: /run/secrets/auth_private.pem
+      JWT_PUBLIC_KEY_PATH: /run/secrets/auth_public.pem
+    volumes:
+      - ./app/auth-api/private.pem:/run/secrets/auth_private.pem:ro
+      - ./app/auth-api/public.pem:/run/secrets/auth_public.pem:ro
     depends_on:
       auth-db:
         condition: service_started

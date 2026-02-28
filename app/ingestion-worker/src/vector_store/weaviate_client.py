@@ -1,16 +1,12 @@
-"""
-Weaviate vector store client for document storage and retrieval.
-Caller passes config (each service has its own settings).
-"""
+"""Weaviate client for ingestion-worker (write + schema)."""
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 import weaviate
 from llama_index.embeddings.openai import OpenAIEmbedding
-from weaviate.classes.query import MetadataQuery
 
-from code_shared.core.base_db import BaseVectorStore
-from code_shared.core.schema import init_schema
+from src.vector_store.base import BaseVectorStore
+from src.vector_store.schema import init_schema
 
 
 def _host_port_from_url(url: str) -> tuple[str, int]:
@@ -21,8 +17,6 @@ def _host_port_from_url(url: str) -> tuple[str, int]:
 
 
 class WeaviateClient(BaseVectorStore):
-    """Weaviate-backed vector store with OpenAI embeddings."""
-
     def __init__(
         self,
         weaviate_url: str,
@@ -56,14 +50,7 @@ class WeaviateClient(BaseVectorStore):
                 batch.add_object(properties=item, vector=vector)
 
     def retrieve(self, query: str, top_k: int = 10) -> List[Dict[str, Any]]:
-        query_vector = self.embed_model.get_text_embedding(query)
-        collection = self.client.collections.use(self.class_name)
-        response = collection.query.near_vector(
-            near_vector=query_vector,
-            limit=top_k,
-            return_metadata=MetadataQuery(distance=True),
-        )
-        return [obj.properties for obj in response.objects]
+        raise NotImplementedError("Ingestion-worker only writes to Weaviate")
 
     def close(self) -> None:
         if self.client:

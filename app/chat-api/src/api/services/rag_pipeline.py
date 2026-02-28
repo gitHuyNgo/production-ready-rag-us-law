@@ -5,7 +5,7 @@ Optional semantic cache: if query embedding matches a cached one above threshold
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
 from src.api.services.base_reranker import BaseReranker
-from code_shared.core.base_db import BaseVectorStore
+from src.vector_store.base import BaseVectorStore
 from code_shared.llm import BaseLLM
 
 # ---------------------------------------------------------------------------

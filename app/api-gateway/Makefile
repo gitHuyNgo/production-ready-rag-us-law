@@ -5,13 +5,17 @@ APP_ENV_FILE ?= .env
 export APP_ENV_FILE
 export PYTHONPATH := .
 
-.PHONY: help server serve
+.PHONY: help server serve test
 
 help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "  server   Start the gateway with reload (dev)"
 	@echo "  serve    Start the gateway (e.g. Docker)"
+	@echo "  test     Run tests"
+
+test:
+	pytest
 
 server:
 	uvicorn src.main:app --reload --host 127.0.0.1 --port 8080

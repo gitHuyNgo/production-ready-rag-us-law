@@ -13,8 +13,8 @@ from src.chat_memory.service import ChatMemoryService
 from src.chat_memory.store import CassandraChatMemoryStore, InMemoryChatMemoryStore
 from code_shared.llm import OpenAILLM
 from src.api.core.config import settings
-from code_shared.core.db_client import WeaviateClient
-from code_shared.core.semantic_cache import SemanticCache
+from src.vector_store import WeaviateClient
+from src.semantic_cache import SemanticCache
 
 # Prompts live in chat-api (not code-shared)
 _PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"

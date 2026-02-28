@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 import pytest
 
 from src.api.core.config import settings
-from code_shared.core.db_client import WeaviateClient
+from src.vector_store.weaviate_client import WeaviateClient
 
 
 class _FakeWeaviateCollection:
@@ -83,8 +83,8 @@ def patched_weaviate(monkeypatch: pytest.MonkeyPatch):
     fake_embed = _FakeEmbedModel()
 
     # Patch external dependencies inside db_client module.
-    monkeypatch.setattr("code_shared.core.db_client.weaviate.connect_to_local", lambda *args, **kwargs: fake_client)
-    monkeypatch.setattr("code_shared.core.db_client.OpenAIEmbedding", lambda *args, **kwargs: fake_embed)
+    monkeypatch.setattr("src.vector_store.weaviate_client.weaviate.connect_to_local", lambda *args, **kwargs: fake_client)
+    monkeypatch.setattr("src.vector_store.weaviate_client.OpenAIEmbedding", lambda *args, **kwargs: fake_embed)
 
     return fake_client, fake_embed
 

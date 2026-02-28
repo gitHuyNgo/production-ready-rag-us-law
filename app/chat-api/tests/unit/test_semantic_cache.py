@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from code_shared.core.semantic_cache import (
+from src.semantic_cache import (
     SemanticCache,
     _cosine_distance_to_similarity,
     _embedding_to_bytes,
@@ -45,7 +45,7 @@ def test_semantic_cache_client_or_raise_when_disabled():
         cache._client_or_raise()
 
 
-@patch("code_shared.core.semantic_cache.redis.from_url")
+@patch("src.semantic_cache.redis.from_url")
 def test_semantic_cache_get_hit(mock_from_url):
     mock_r = MagicMock()
     mock_ft = MagicMock()
@@ -63,7 +63,7 @@ def test_semantic_cache_get_hit(mock_from_url):
     cache.close()
 
 
-@patch("code_shared.core.semantic_cache.redis.from_url")
+@patch("src.semantic_cache.redis.from_url")
 def test_semantic_cache_get_miss_no_docs(mock_from_url):
     mock_r = MagicMock()
     mock_ft = MagicMock()
@@ -79,7 +79,7 @@ def test_semantic_cache_get_miss_no_docs(mock_from_url):
     cache.close()
 
 
-@patch("code_shared.core.semantic_cache.redis.from_url")
+@patch("src.semantic_cache.redis.from_url")
 def test_semantic_cache_get_returns_none_when_score_missing(mock_from_url):
     """When doc has no score attribute, get returns None."""
     mock_r = MagicMock()
@@ -96,7 +96,7 @@ def test_semantic_cache_get_returns_none_when_score_missing(mock_from_url):
     cache.close()
 
 
-@patch("code_shared.core.semantic_cache.redis.from_url")
+@patch("src.semantic_cache.redis.from_url")
 def test_semantic_cache_get_returns_none_when_response_missing(mock_from_url):
     """When doc has score but no response, get returns None."""
     mock_r = MagicMock()
@@ -113,7 +113,7 @@ def test_semantic_cache_get_returns_none_when_response_missing(mock_from_url):
     cache.close()
 
 
-@patch("code_shared.core.semantic_cache.redis.from_url")
+@patch("src.semantic_cache.redis.from_url")
 def test_semantic_cache_get_below_threshold(mock_from_url):
     mock_r = MagicMock()
     mock_ft = MagicMock()
@@ -130,7 +130,7 @@ def test_semantic_cache_get_below_threshold(mock_from_url):
     cache.close()
 
 
-@patch("code_shared.core.semantic_cache.redis.from_url")
+@patch("src.semantic_cache.redis.from_url")
 def test_semantic_cache_set(mock_from_url):
     mock_r = MagicMock()
     mock_ft = MagicMock()
@@ -148,7 +148,7 @@ def test_semantic_cache_set(mock_from_url):
     cache.close()
 
 
-@patch("code_shared.core.semantic_cache.redis.from_url")
+@patch("src.semantic_cache.redis.from_url")
 def test_semantic_cache_ensure_index_creates_when_missing(mock_from_url):
     import redis.exceptions
 
@@ -165,7 +165,7 @@ def test_semantic_cache_ensure_index_creates_when_missing(mock_from_url):
     cache.close()
 
 
-@patch("code_shared.core.semantic_cache.redis.from_url")
+@patch("src.semantic_cache.redis.from_url")
 def test_semantic_cache_flush(mock_from_url):
     mock_r = MagicMock()
     mock_ft = MagicMock()
@@ -181,7 +181,7 @@ def test_semantic_cache_flush(mock_from_url):
     cache.close()
 
 
-@patch("code_shared.core.semantic_cache.redis.from_url")
+@patch("src.semantic_cache.redis.from_url")
 def test_semantic_cache_flush_ignores_dropindex_error(mock_from_url):
     """When dropindex raises ResponseError (e.g. index already gone), flush still completes."""
     import redis.exceptions
@@ -224,7 +224,7 @@ def test_semantic_cache_close_handles_client_close_error():
     assert cache._client is None
 
 
-@patch("code_shared.core.semantic_cache.redis.from_url")
+@patch("src.semantic_cache.redis.from_url")
 def test_semantic_cache_get_handles_redis_error(mock_from_url):
     """When Redis/search raises, get returns None (exception path covered)."""
     mock_r = MagicMock()
@@ -241,7 +241,7 @@ def test_semantic_cache_get_handles_redis_error(mock_from_url):
     cache.close()
 
 
-@patch("code_shared.core.semantic_cache.redis.from_url")
+@patch("src.semantic_cache.redis.from_url")
 def test_semantic_cache_set_handles_redis_error(mock_from_url):
     """When hset/expire raises, set catches and does not raise."""
     mock_r = MagicMock()
@@ -257,7 +257,7 @@ def test_semantic_cache_set_handles_redis_error(mock_from_url):
     cache.close()
 
 
-@patch("code_shared.core.semantic_cache.redis.from_url")
+@patch("src.semantic_cache.redis.from_url")
 def test_semantic_cache_flush_handles_redis_error(mock_from_url):
     """When flush hits an error, it catches and does not raise."""
     mock_r = MagicMock()
