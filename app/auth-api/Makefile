@@ -5,7 +5,7 @@ APP_ENV_FILE ?= .env
 export APP_ENV_FILE
 export PYTHONPATH := $(shell pwd)
 
-.PHONY: help test server serve
+.PHONY: help test server serve gen-key
 
 help:
 	@echo "Usage: make [target]"
@@ -13,6 +13,7 @@ help:
 	@echo "  test     Run pytest"
 	@echo "  server   Start the API server with reload (dev)"
 	@echo "  serve    Start the API server (e.g. Docker)"
+	@echo "  gen-key  Generate RSA keypair and export public key to api-gateway"
 
 test:
 	pytest tests/ -v
@@ -22,3 +23,6 @@ server:
 
 serve:
 	uvicorn src.main:app --host 0.0.0.0 --port 8001
+
+gen-key:
+	bash scripts/gen_key.sh

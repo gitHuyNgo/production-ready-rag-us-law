@@ -1,5 +1,6 @@
 # API Gateway Makefile – run from app/api-gateway/
 SHELL := /bin/bash
+SCRIPTS := scripts
 
 APP_ENV_FILE ?= .env
 export APP_ENV_FILE
@@ -15,10 +16,10 @@ help:
 	@echo "  test     Run tests"
 
 test:
-	pytest
+	cd $(SCRIPTS) && bash test.sh
 
 server:
-	uvicorn src.main:app --reload --host 127.0.0.1 --port 8080
+	cd $(SCRIPTS) && bash server.sh
 
 serve:
 	uvicorn src.main:app --host 0.0.0.0 --port 8080

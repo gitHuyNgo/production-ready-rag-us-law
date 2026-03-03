@@ -10,3 +10,23 @@ __pycache__
 .pytest_cache
 code_shared.egg-info/
 *.pem
+
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfplan
+*.tfvars
+!*.tfvars.example
+crash.log
+override.tf
+override.tf.json
+
+# Kubernetes
+infra/k8s/**/*.secret.yaml
+kubeconfig
+*.kubeconfig
+
+# Monitoring
+infra/monitoring/grafana-admin-password
