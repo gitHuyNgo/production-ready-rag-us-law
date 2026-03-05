@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - api-gateway.yaml
+  - auth-api.yaml
+  - user-api.yaml
+  - chat-api.yaml
+  - ingestion-worker.yaml
+  - frontend.yaml
+  - ingress.yaml
