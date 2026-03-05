@@ -20,21 +20,24 @@ A single monolith would couple security-sensitive auth code with the heavy RAG p
 
 Split the system into five services behind a single API Gateway:
 
-```
-┌──────────────────────────────────────────────────────┐
-│                    API Gateway (:8080)                 │
-│                                                       │
-│  CORS │ Rate Limiting │ JWT Verification │ Proxy      │
-└───┬──────────┬──────────┬──────────┬─────────────────┘
-    │          │          │          │
-    ▼          ▼          ▼          ▼
- auth-api   user-api  chat-api  ingestion-worker
-  (:8001)    (:8002)   (:8000)   (no HTTP)
-    │          │          │
-    ▼          ▼          ▼
- Postgres   MongoDB   Weaviate
-                      Redis
-                      Cassandra
+```mermaid
+graph TD
+    GW["API Gateway :8080<br/>CORS | Rate Limiting | JWT Verification | Proxy"]
+    AUTH["auth-api :8001"]
+    USER["user-api :8002"]
+    CHAT["chat-api :8000"]
+    ING["ingestion-worker (no HTTP)"]
+    PG["PostgreSQL"]
+    MG["MongoDB"]
+    WV["Weaviate<br/>Redis<br/>Cassandra"]
+
+    GW --> AUTH
+    GW --> USER
+    GW --> CHAT
+    GW --> ING
+    AUTH --> PG
+    USER --> MG
+    CHAT --> WV
 ```
 
 ### Service Responsibilities
@@ -51,8 +54,9 @@ Split the system into five services behind a single API Gateway:
 
 All external traffic flows through the gateway. Internal services communicate only when the gateway proxies a request. There is no service-to-service communication at runtime (auth-api never calls user-api; chat-api never calls auth-api).
 
-```
-External client → Gateway → exactly ONE backend service → response
+```mermaid
+flowchart LR
+    EC["External client"] --> GW["Gateway"] --> BS["exactly ONE backend service"] --> R["response"]
 ```
 
 The only shared element is the JWT public key, distributed to the gateway and user-api at deployment time (not at runtime).

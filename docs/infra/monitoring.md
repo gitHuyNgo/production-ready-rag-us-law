@@ -14,37 +14,34 @@ Monitoring is provided by the **kube-prometheus-stack** Helm chart, which bundle
 - **node-exporter** — per-node OS and hardware metrics (CPU, memory, disk, network).
 - **kube-state-metrics** — Kubernetes object-level metrics (pod restarts, resource requests vs limits, replica counts, etc.).
 
-```
-┌─ Application Pods ───────────────────────────────────────┐
-│                                                           │
-│  api-gateway  ──── /metrics ──┐                           │
-│  auth-api     ──── /metrics ──┤                           │
-│  user-api     ──── /metrics ──┤  ServiceMonitors          │
-│  chat-api     ──── /metrics ──┤  (scrape config)          │
-│                               │                           │
-└───────────────────────────────┤───────────────────────────┘
-                                │
-                                ▼
-┌─ Monitoring Namespace ────────────────────────────────────┐
-│                                                           │
-│  Prometheus ◄───── ServiceMonitors                        │
-│     │              (auto-discovered)                      │
-│     │                                                     │
-│     ├──── stores metrics (15 day retention)               │
-│     │                                                     │
-│     ├──► Alertmanager ──► Slack / PagerDuty / Email       │
-│     │    (evaluates alert rules)                          │
-│     │                                                     │
-│     └──► Grafana ──► Dashboards                           │
-│          (queries Prometheus)                             │
-│                                                           │
-│  node-exporter (DaemonSet on every node)                  │
-│     └── CPU, memory, disk, network per node               │
-│                                                           │
-│  kube-state-metrics                                       │
-│     └── pod status, replica counts, resource usage        │
-│                                                           │
-└───────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph APP["Application Pods (rag-us-law namespace)"]
+        GW["api-gateway /metrics"]
+        AU["auth-api /metrics"]
+        US["user-api /metrics"]
+        CH["chat-api /metrics"]
+    end
+
+    subgraph MON["Monitoring Namespace"]
+        SM["ServiceMonitors (scrape config, auto-discovered)"]
+        PROM["Prometheus — 15-day retention"]
+        AM["Alertmanager (evaluates alert rules)"]
+        GF["Grafana (queries Prometheus) — Dashboards"]
+        NE["node-exporter DaemonSet — CPU, memory, disk, network per node"]
+        KSM["kube-state-metrics — pod status, replica counts, resource usage"]
+    end
+
+    NOTIF["Slack / PagerDuty / Email"]
+
+    GW --> SM
+    AU --> SM
+    US --> SM
+    CH --> SM
+    SM --> PROM
+    PROM --> AM
+    PROM --> GF
+    AM --> NOTIF
 ```
 
 ---

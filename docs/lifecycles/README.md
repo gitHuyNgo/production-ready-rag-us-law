@@ -2,24 +2,29 @@
 
 This folder documents the **three separate lifecycles** that take the US Law RAG system from zero to running in production. Each lifecycle changes at a different speed and is managed by different tooling — understanding this separation is the key to making sense of the overall deployment architecture.
 
-```
- LIFECYCLE 1                LIFECYCLE 2                LIFECYCLE 3
- (run once / rarely)        (run once / rarely)        (run on every git push)
- ─────────────────          ─────────────────          ──────────────────────
- Terraform                  Platform Bootstrap         App CI/CD
- (create the cloud)         (install infra on k8s)     (build & deploy your code)
+```mermaid
+flowchart LR
+    subgraph LC1["LIFECYCLE 1 — run once / rarely<br/>Terraform (create the cloud)"]
+        L1S["AWS Account"]
+        L1E["VPC, Subnets<br/>EKS Cluster<br/>IAM Roles<br/>ECR Repos<br/>S3, Route53"]
+        L1R["INFRA EXISTS"]
+        L1S --> L1E --> L1R
+    end
+    subgraph LC2["LIFECYCLE 2 — run once / rarely<br/>Platform Bootstrap (install infra on k8s)"]
+        L2S["EKS Cluster exists"]
+        L2E["Namespaces, Secrets<br/>Databases (StatefulSets)<br/>Kafka, Redis, Weaviate<br/>Ingress Controller<br/>cert-manager, monitoring"]
+        L2R["PLATFORM READY"]
+        L2S --> L2E --> L2R
+    end
+    subgraph LC3["LIFECYCLE 3 — every git push<br/>App CI/CD (build & deploy your code)"]
+        L3S["Platform is ready"]
+        L3E["Lint, Test<br/>Build Docker images<br/>Push to ECR<br/>Deploy to EKS<br/>Smoke test"]
+        L3R["APP LIVE"]
+        L3S --> L3E --> L3R
+    end
 
- AWS Account                EKS Cluster exists         Platform is ready
-     │                          │                          │
-     ▼                          ▼                          ▼
- VPC, Subnets              Namespaces, Secrets         Lint, Test
- EKS Cluster               Databases (StatefulSets)    Build Docker images
- IAM Roles                 Kafka, Redis, Weaviate      Push to ECR
- ECR Repos                 Ingress Controller          Deploy to EKS
- S3, Route53               cert-manager, monitoring    Smoke test
-     │                          │                          │
-     ▼                          ▼                          ▼
- INFRA EXISTS               PLATFORM READY              APP LIVE
+    L1R --> L2S
+    L2R --> L3S
 ```
 
 ---

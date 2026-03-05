@@ -8,23 +8,24 @@ This document describes the Kubernetes manifests for the US Law RAG system. All 
 
 All application workloads run in the `rag-us-law` namespace. External traffic enters through an NGINX Ingress controller which routes to the frontend and the API Gateway. The API Gateway is the single internal entry point for all API calls; backend services are not reachable from outside the cluster.
 
-```
-Internet
-   │
-   ▼
-AWS NLB (public IP)
-   │
-   ▼
-NGINX Ingress Controller (ingress-nginx namespace)
-   │
-   ├─ /       → frontend (port 80)          ← static React/Vite app served by NGINX
-   └─ /api    → api-gateway (port 80)       ← proxies to auth/user/chat services
-                    │
-                    ├─ /auth/*   → auth-api    (8001)   ← identity, JWT, OIDC
-                    ├─ /profiles/* → user-api  (8002)   ← profile CRUD
-                    └─ /chat/*   → chat-api    (8000)   ← RAG pipeline, WebSocket
+```mermaid
+graph TD
+    INET["Internet"]
+    NLB["AWS NLB (public IP)"]
+    NGINX["NGINX Ingress Controller (ingress-nginx namespace)"]
+    FE["frontend :80<br/>static React/Vite app served by NGINX"]
+    GW["api-gateway :80<br/>proxies to auth/user/chat services"]
+    AUTH["auth-api :8001<br/>identity, JWT, OIDC"]
+    USER["user-api :8002<br/>profile CRUD"]
+    CHAT["chat-api :8000<br/>RAG pipeline, WebSocket"]
+    ING["ingestion-worker<br/>no HTTP — background worker"]
 
-ingestion-worker  (no HTTP — Deployment with no Service, runs as background worker)
+    INET --> NLB --> NGINX
+    NGINX -- "/" --> FE
+    NGINX -- "/api" --> GW
+    GW -- "/auth/*" --> AUTH
+    GW -- "/profiles/*" --> USER
+    GW -- "/chat/*" --> CHAT
 ```
 
 ---

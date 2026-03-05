@@ -105,30 +105,30 @@ Streaming chat. Client sends JSON messages; server streams tokens in real-time.
 
 **Connection flow:**
 
-```
-Client                     Gateway                      chat-api
-  │                          │                              │
-  │ WS /chat/?session_id=X   │                              │
-  │ Authorization: Bearer ... │                              │
-  │ ─────────────────────────►│                              │
-  │                          │ verify JWT → sub              │
-  │                          │ convert http→ws URL           │
-  │                          │ ──────── WS /chat/ ─────────►│
-  │                          │ X-User-Id: john_doe           │
-  │                          │ X-Session-Id: X               │
-  │                          │                              │
-  │◄────────── accept ────────│◄────────── accept ──────────│
-  │                          │                              │
-  │ {"content": "question"}  │                              │
-  │ ─────────────────────────►│ ────────────────────────────►│
-  │                          │                              │
-  │                          │     RAG pipeline (streaming)  │
-  │                          │                              │
-  │◄── "The" ────────────────│◄── "The" ───────────────────│
-  │◄── " Fourth" ────────────│◄── " Fourth" ───────────────│
-  │◄── " Amendment" ─────────│◄── " Amendment" ────────────│
-  │◄── " protects..." ───────│◄── " protects..." ──────────│
-  │◄── [END] ────────────────│◄── [END] ───────────────────│
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant G as Gateway
+    participant CA as chat-api
+
+    C->>G: WS /chat/?session_id=X<br/>Authorization: Bearer ...
+    G->>G: verify JWT → sub<br/>convert http→ws URL
+    G->>CA: WS /chat/<br/>X-User-Id: john_doe, X-Session-Id: X
+    CA-->>G: accept
+    G-->>C: accept
+    C->>G: {"content": "question"}
+    G->>CA: forward message
+    Note over CA: RAG pipeline (streaming)
+    CA-->>G: "The"
+    G-->>C: "The"
+    CA-->>G: " Fourth"
+    G-->>C: " Fourth"
+    CA-->>G: " Amendment"
+    G-->>C: " Amendment"
+    CA-->>G: " protects..."
+    G-->>C: " protects..."
+    CA-->>G: [END]
+    G-->>C: [END]
 ```
 
 The gateway uses a bidirectional WebSocket proxy (`src/proxy/ws_proxy.py`) that forwards frames in both directions using `asyncio.gather`.
@@ -184,54 +184,26 @@ Get recent messages for a specific chat session.
 
 ### Architecture
 
-```
-                    ┌─────────────┐
-                    │   Query     │
-                    │ "What does  │
-                    │  the 4th    │
-                    │  amendment  │
-                    │  protect?"  │
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-                    │  Semantic   │     cache hit? → return cached response
-                    │  Cache      │◄── Redis KNN (cosine >= 0.95)
-                    │  (Redis)    │
-                    └──────┬──────┘
-                           │ cache miss
-                    ┌──────▼──────┐
-                    │  Retrieve   │     Weaviate near_vector
-                    │  top 25     │◄── OpenAI text-embedding-3-large
-                    │  chunks     │     (3072 dimensions)
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-                    │  BM25       │     lexical rerank
-                    │  Reranker   │     TF-IDF scoring
-                    │  (1st pass) │
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-                    │  Cohere     │     neural rerank
-                    │  Reranker   │     cross-encoder model
-                    │  (2nd pass) │
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-                    │  Context    │     "[Chunk 1]\nSource: ...\nContent: ..."
-                    │  Builder    │     transform(final_docs)
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-                    │  LLM        │     OpenAI ChatCompletion
-                    │  Generate   │     system prompt + context + query
-                    │             │     supports streaming
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-                    │  Cache &    │     store in Redis + append to Cassandra
-                    │  Memory     │
-                    └─────────────┘
+```mermaid
+flowchart TD
+    Q["Query<br/>'What does the 4th amendment protect?'"]
+    SC["Semantic Cache (Redis)<br/>Redis KNN cosine >= 0.95"]
+    CACHED["Return Cached Response"]
+    RET["Retrieve top 25 chunks<br/>Weaviate near_vector<br/>OpenAI text-embedding-3-large (3072 dims)"]
+    BM25["BM25 Reranker — 1st pass<br/>lexical rerank, TF-IDF scoring"]
+    COHERE["Cohere Reranker — 2nd pass<br/>neural rerank, cross-encoder model"]
+    CTX["Context Builder<br/>transform(final_docs)<br/>'[Chunk 1] Source: ... Content: ...'"]
+    LLM["LLM Generate<br/>OpenAI ChatCompletion<br/>system prompt + context + query<br/>supports streaming"]
+    CACHE_MEM["Cache & Memory<br/>store in Redis + append to Cassandra"]
+
+    Q --> SC
+    SC -- "cache hit" --> CACHED
+    SC -- "cache miss" --> RET
+    RET --> BM25
+    BM25 --> COHERE
+    COHERE --> CTX
+    CTX --> LLM
+    LLM --> CACHE_MEM
 ```
 
 ### Semantic Cache (Redis)

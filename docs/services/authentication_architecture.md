@@ -6,79 +6,41 @@ This document describes the complete authentication and user management system �
 
 ## Service Map
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                              CLIENT                                    │
-│  Browser / Mobile / API consumer                                       │
-│                                                                        │
-│  Knows: API Gateway URL, Bearer token format                           │
-│  Stores: access_token (memory), refresh_token (httponly cookie)         │
-└────────────────────┬───────────────────────────────────────────────────┘
-                     │ HTTPS
-                     ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                         API GATEWAY (:8080)                            │
-│                                                                        │
-│  Responsibilities:                                                     │
-│    1. CORS (allow frontend origin)                                     │
-│    2. Rate limiting (SlowAPI: 100/min default, 20/min for auth)        │
-│    3. JWT verification (RS256 with auth-api's public key)              │
-│    4. Route to backend service                                         │
-│    5. Add X-User-Id header from JWT sub claim                          │
-│                                                                        │
-│  Public routes (no JWT check):                                         │
-│    /auth/register, /auth/token, /health, /docs, /openapi.json, /redoc │
-│                                                                        │
-│  Protected routes (JWT required):                                      │
-│    /auth/me, /profiles/*, /chat/*                                      │
-│                                                                        │
-│  Source: app/api-gateway/src/main.py                                   │
-└─────┬──────────────────┬──────────────────┬───────────────────────────┘
-      │                  │                  │
-      ▼                  ▼                  ▼
-┌──────────┐      ┌──────────┐      ┌──────────┐
-│ auth-api │      │ user-api │      │ chat-api │
-│  :8001   │      │  :8002   │      │  :8000   │
-│          │      │          │      │          │
-│ Postgres │      │ MongoDB  │      │ Weaviate │
-│ (auth-db)│      │ (user-db)│      │ Redis    │
-└──────────┘      └──────────┘      │ Cassandra│
-                                    └──────────┘
+```mermaid
+graph TD
+    C["CLIENT<br/>Browser / Mobile / API consumer<br/>Knows: API Gateway URL, Bearer token format<br/>Stores: access_token (memory), refresh_token (httponly cookie)"]
+
+    GW["API GATEWAY :8080<br/>1. CORS (allow frontend origin)<br/>2. Rate limiting (SlowAPI: 100/min default, 20/min for auth)<br/>3. JWT verification (RS256 with auth-api public key)<br/>4. Route to backend service<br/>5. Add X-User-Id header from JWT sub claim<br/><br/>Public routes: /auth/register, /auth/token, /health, /docs<br/>Protected routes: /auth/me, /profiles/*, /chat/*"]
+
+    AUTH["auth-api :8001<br/>PostgreSQL (auth-db)"]
+    USER["user-api :8002<br/>MongoDB (user-db)"]
+    CHAT["chat-api :8000<br/>Weaviate / Redis / Cassandra"]
+
+    C -- "HTTPS" --> GW
+    GW --> AUTH
+    GW --> USER
+    GW --> CHAT
 ```
 
 ---
 
 ## Flow 1: Registration
 
-```
-Client                    Gateway                   auth-api                  PostgreSQL
-  │                          │                          │                         │
-  │ POST /auth/register      │                          │                         │
-  │ { username, email, pw }  │                          │                         │
-  │ ─────────────────────────►                          │                         │
-  │                          │                          │                         │
-  │                    (public route — no JWT check)    │                         │
-  │                          │                          │                         │
-  │                          │ POST /auth/register      │                         │
-  │                          │ ─────────────────────────►                         │
-  │                          │                          │                         │
-  │                          │              AuthService.register()                │
-  │                          │              ┌─ hash password (Argon2id) ─┐        │
-  │                          │              │  pwd_context.hash(pw)      │        │
-  │                          │              │  → "$argon2id$v=19$..."    │        │
-  │                          │              └───────────────────────────┘        │
-  │                          │                          │                         │
-  │                          │              repo.create_user(username, email, hash)│
-  │                          │                          │ INSERT INTO users       │
-  │                          │                          │ ────────────────────────►│
-  │                          │                          │                         │
-  │                          │              (optional) publish UserCreated event   │
-  │                          │                          │                         │
-  │                          │ 201 { username, email }  │                         │
-  │                          │ ◄────────────────────────│                         │
-  │                          │                          │                         │
-  │ 201 { username, email }  │                          │                         │
-  │ ◄─────────────────────────                          │                         │
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant G as Gateway
+    participant A as auth-api
+    participant PG as PostgreSQL
+
+    C->>G: POST /auth/register {username, email, pw}
+    Note over G: public route — no JWT check
+    G->>A: POST /auth/register
+    Note over A: AuthService.register()<br/>hash password (Argon2id)<br/>pwd_context.hash(pw) → "$argon2id$v=19$..."
+    A->>PG: INSERT INTO users (username, email, hash)
+    Note over A: (optional) publish UserCreated event
+    A-->>G: 201 {username, email}
+    G-->>C: 201 {username, email}
 ```
 
 ### Password Hashing Details
@@ -98,113 +60,63 @@ Argon2id is the recommended algorithm per OWASP. It is resistant to both GPU att
 
 ## Flow 2: Login (Token Issuance)
 
-```
-Client                    Gateway                   auth-api                  PostgreSQL
-  │                          │                          │                         │
-  │ POST /auth/token         │                          │                         │
-  │ (form: username, pw)     │                          │                         │
-  │ ─────────────────────────►                          │                         │
-  │                          │                          │                         │
-  │                    (public route — no JWT check)    │                         │
-  │                          │                          │                         │
-  │                          │ POST /auth/token         │                         │
-  │                          │ ─────────────────────────►                         │
-  │                          │                          │                         │
-  │                          │              1. repo.get_by_username(username)      │
-  │                          │                          │ SELECT FROM users       │
-  │                          │                          │ ────────────────────────►│
-  │                          │                          │ ◄──── User row ─────────│
-  │                          │                          │                         │
-  │                          │              2. pwd_context.verify(pw, hash)        │
-  │                          │                 → True (constant-time comparison)   │
-  │                          │                          │                         │
-  │                          │              3. Create access token (JWT RS256)     │
-  │                          │                 payload: { sub: username,           │
-  │                          │                            exp: now + 30min }       │
-  │                          │                 signed with PRIVATE key             │
-  │                          │                          │                         │
-  │                          │              4. Create refresh token (JWT RS256)    │
-  │                          │                 payload: { sub: username,           │
-  │                          │                            exp: now + 7days,        │
-  │                          │                            type: refresh }          │
-  │                          │                          │                         │
-  │                          │              5. repo.save_refresh_token()           │
-  │                          │                          │ UPSERT refresh_tokens   │
-  │                          │                          │ ────────────────────────►│
-  │                          │                          │                         │
-  │                          │ 200 { access_token,      │                         │
-  │                          │       refresh_token }    │                         │
-  │                          │ Set-Cookie: refresh_token │                         │
-  │                          │ ◄────────────────────────│                         │
-  │                          │                          │                         │
-  │ 200 { access_token,      │                          │                         │
-  │       refresh_token }    │                          │                         │
-  │ Set-Cookie: refresh_token│                          │                         │
-  │ ◄─────────────────────────                          │                         │
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant G as Gateway
+    participant A as auth-api
+    participant PG as PostgreSQL
+
+    C->>G: POST /auth/token (form: username, pw)
+    Note over G: public route — no JWT check
+    G->>A: POST /auth/token
+    A->>PG: SELECT FROM users WHERE username=...
+    PG-->>A: User row
+    Note over A: pwd_context.verify(pw, hash) → True (constant-time)
+    Note over A: Create access token (JWT RS256)<br/>payload: {sub: username, exp: now+30min}<br/>signed with PRIVATE key
+    Note over A: Create refresh token (JWT RS256)<br/>payload: {sub: username, exp: now+7days, type: refresh}
+    A->>PG: UPSERT refresh_tokens
+    A-->>G: 200 {access_token, refresh_token}<br/>Set-Cookie: refresh_token
+    G-->>C: 200 {access_token, refresh_token}<br/>Set-Cookie: refresh_token
 ```
 
 ### Token Anatomy
 
-```
-Access Token (30-minute lifetime):
-┌──────────────────────────────────────────────────┐
-│ Header:  { "alg": "RS256", "typ": "JWT" }        │
-│ Payload: { "sub": "john_doe",                     │
-│            "exp": 1709712000,                     │
-│            "iat": 1709710200 }                    │
-│ Signature: RSA_SHA256(header.payload, PRIVATE_KEY)│
-└──────────────────────────────────────────────────┘
+**Access Token (30-minute lifetime):**
 
-Refresh Token (7-day lifetime):
-┌──────────────────────────────────────────────────┐
-│ Header:  { "alg": "RS256", "typ": "JWT" }        │
-│ Payload: { "sub": "john_doe",                     │
-│            "exp": 1710316800,                     │
-│            "iat": 1709710200,                     │
-│            "type": "refresh" }                    │
-│ Signature: RSA_SHA256(header.payload, PRIVATE_KEY)│
-└──────────────────────────────────────────────────┘
-```
+| Part | Value |
+| --- | --- |
+| Header | `{ "alg": "RS256", "typ": "JWT" }` |
+| Payload | `{ "sub": "john_doe", "exp": 1709712000, "iat": 1709710200 }` |
+| Signature | `RSA_SHA256(header.payload, PRIVATE_KEY)` |
+
+**Refresh Token (7-day lifetime):**
+
+| Part | Value |
+| --- | --- |
+| Header | `{ "alg": "RS256", "typ": "JWT" }` |
+| Payload | `{ "sub": "john_doe", "exp": 1710316800, "iat": 1709710200, "type": "refresh" }` |
+| Signature | `RSA_SHA256(header.payload, PRIVATE_KEY)` |
 
 ---
 
 ## Flow 3: Accessing a Protected Resource
 
-```
-Client                    Gateway                   user-api                  MongoDB
-  │                          │                          │                        │
-  │ GET /profiles/me         │                          │                        │
-  │ Authorization: Bearer <access_token>                │                        │
-  │ ─────────────────────────►                          │                        │
-  │                          │                          │                        │
-  │              1. Extract Bearer token                │                        │
-  │              2. verify_token(token)                 │                        │
-  │                 → jwt.decode(token, PUBLIC_KEY, RS256)                       │
-  │                 → check exp > now                   │                        │
-  │                 → extract sub = "john_doe"          │                        │
-  │                          │                          │                        │
-  │              3. Proxy request to user-api           │                        │
-  │                 Add header: X-User-Id: john_doe     │                        │
-  │                          │                          │                        │
-  │                          │ GET /profiles/me         │                        │
-  │                          │ Authorization: Bearer <token>                     │
-  │                          │ X-User-Id: john_doe      │                        │
-  │                          │ ─────────────────────────►                        │
-  │                          │                          │                        │
-  │                          │     4. user-api: decode JWT AGAIN with public key │
-  │                          │        (does NOT trust X-User-Id blindly)         │
-  │                          │        → sub = "john_doe"│                        │
-  │                          │                          │                        │
-  │                          │     5. get_profile("john_doe")                    │
-  │                          │                          │ findOne({user_id:...}) │
-  │                          │                          │ ──────────────────────►│
-  │                          │                          │ ◄── profile doc ───────│
-  │                          │                          │                        │
-  │                          │ 200 { user_id, display_name, bio, ... }           │
-  │                          │ ◄────────────────────────│                        │
-  │                          │                          │                        │
-  │ 200 { user_id, display_name, bio, ... }             │                        │
-  │ ◄─────────────────────────                          │                        │
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant G as Gateway
+    participant U as user-api
+    participant MG as MongoDB
+
+    C->>G: GET /profiles/me<br/>Authorization: Bearer access_token
+    Note over G: 1. Extract Bearer token<br/>2. jwt.decode(token, PUBLIC_KEY, RS256)<br/>3. check exp > now → extract sub = "john_doe"<br/>4. Add X-User-Id: john_doe header
+    G->>U: GET /profiles/me<br/>Authorization: Bearer token<br/>X-User-Id: john_doe
+    Note over U: Decode JWT AGAIN with public key<br/>(does NOT trust X-User-Id blindly)<br/>→ sub = "john_doe"
+    U->>MG: findOne({user_id: "john_doe"})
+    MG-->>U: profile doc
+    U-->>G: 200 {user_id, display_name, bio, ...}
+    G-->>C: 200 {user_id, display_name, bio, ...}
 ```
 
 ### Why Double JWT Verification?
@@ -219,74 +131,44 @@ Both the gateway and user-api verify the JWT independently. This is **defense in
 
 ## Flow 4: Google OIDC Login
 
-```
-Browser                  Gateway              auth-api              Google              PostgreSQL
-  │                         │                     │                    │                    │
-  │ GET /auth/login/google  │                     │                    │                    │
-  │ ────────────────────────►                     │                    │                    │
-  │                         │ proxy ──────────────►                    │                    │
-  │                         │                     │                    │                    │
-  │ 302 → Google consent    │                     │                    │                    │
-  │ ◄──────────────────────────────────────────────                    │                    │
-  │                         │                     │                    │                    │
-  │ User authorizes on Google                     │                    │                    │
-  │                         │                     │                    │                    │
-  │ GET /auth/callback/google?code=XYZ            │                    │                    │
-  │ ────────────────────────►                     │                    │                    │
-  │                         │ proxy ──────────────►                    │                    │
-  │                         │                     │                    │                    │
-  │                         │                     │ exchange code      │                    │
-  │                         │                     │ ──────────────────►│                    │
-  │                         │                     │ ◄── id_token ──────│                    │
-  │                         │                     │                    │                    │
-  │                         │                     │ decode id_token    │                    │
-  │                         │                     │ → sub, email       │                    │
-  │                         │                     │                    │                    │
-  │                         │                     │ get_by_federated("google", sub)         │
-  │                         │                     │ ──────────────────────────────────────────►
-  │                         │                     │ ◄───────── existing user or None ────────│
-  │                         │                     │                    │                    │
-  │                         │               if new: create_federated_user()                 │
-  │                         │                     │ INSERT users + federated                │
-  │                         │                     │ ──────────────────────────────────────────►
-  │                         │                     │                    │                    │
-  │                         │               create access_token + refresh_token             │
-  │                         │                     │                    │                    │
-  │ 302 → frontend with tokens                   │                    │                    │
-  │ ◄──────────────────────────────────────────────                    │                    │
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant G as Gateway
+    participant A as auth-api
+    participant GOOG as Google
+    participant PG as PostgreSQL
+
+    B->>G: GET /auth/login/google
+    G->>A: proxy
+    A-->>B: 302 → Google consent screen
+    Note over B: User authorizes on Google
+    B->>G: GET /auth/callback/google?code=XYZ
+    G->>A: proxy
+    A->>GOOG: exchange code for tokens
+    GOOG-->>A: id_token
+    Note over A: decode id_token → sub, email
+    A->>PG: get_by_federated("google", sub)
+    PG-->>A: existing user or None
+    alt new user
+        A->>PG: INSERT users + federated
+    end
+    Note over A: create access_token + refresh_token
+    A-->>B: 302 → frontend with tokens
 ```
 
 ---
 
 ## RS256 Key Distribution
 
-```
-┌─────────────────────────┐
-│       auth-api          │
-│                         │
-│  PRIVATE KEY (signs)    │ ← The most sensitive secret in the system.
-│  PUBLIC KEY  (verifies) │    Compromise = attacker can forge any JWT.
-│                         │
-│  Loaded from:           │
-│  JWT_PRIVATE_KEY_PATH   │ → /run/secrets/auth_private.pem (Docker mount)
-│  JWT_PUBLIC_KEY_PATH    │ → /run/secrets/auth_public.pem
-└────────────┬────────────┘
-             │
-      public key shared with:
-             │
-    ┌────────┴─────────┐
-    ▼                  ▼
-┌──────────┐    ┌──────────┐
-│ gateway  │    │ user-api │
-│          │    │          │
-│ PUBLIC   │    │ PUBLIC   │
-│ KEY only │    │ KEY only │
-│          │    │          │
-│ Can:     │    │ Can:     │
-│  verify  │    │  verify  │
-│ Cannot:  │    │ Cannot:  │
-│  sign    │    │  sign    │
-└──────────┘    └──────────┘
+```mermaid
+graph TD
+    AA["auth-api<br/>PRIVATE KEY (signs) — most sensitive secret; compromise = forgeable JWTs<br/>PUBLIC KEY (verifies)<br/>Loaded from JWT_PRIVATE_KEY_PATH → /run/secrets/auth_private.pem<br/>and JWT_PUBLIC_KEY_PATH → /run/secrets/auth_public.pem"]
+    GW["gateway<br/>PUBLIC KEY only<br/>Can: verify<br/>Cannot: sign"]
+    UA["user-api<br/>PUBLIC KEY only<br/>Can: verify<br/>Cannot: sign"]
+
+    AA -- "public key shared with" --> GW
+    AA -- "public key shared with" --> UA
 ```
 
 ### Key Rotation Procedure

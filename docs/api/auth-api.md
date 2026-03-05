@@ -251,22 +251,14 @@ Receive token → split into header.payload.signature
 
 ### Key Distribution
 
-```
-                        ┌─────────────┐
-                        │  auth-api   │
-                        │             │
-                        │ PRIVATE key │ ← signs tokens
-                        │ PUBLIC key  │ ← verifies own tokens (/me)
-                        └─────────────┘
-                              │
-              ┌───────────────┴───────────────┐
-              ▼                               ▼
-        ┌─────────────┐                ┌─────────────┐
-        │ api-gateway │                │  user-api   │
-        │             │                │             │
-        │ PUBLIC key  │ ← verifies     │ PUBLIC key  │ ← verifies
-        │ (read only) │   all requests │ (read only) │   /profiles/*
-        └─────────────┘                └─────────────┘
+```mermaid
+graph TD
+    AA["auth-api<br/>PRIVATE key — signs tokens<br/>PUBLIC key — verifies own tokens /me"]
+    GW["api-gateway<br/>PUBLIC key only (read-only)<br/>verifies all requests"]
+    UA["user-api<br/>PUBLIC key only (read-only)<br/>verifies /profiles/*"]
+
+    AA -- "public key distributed to" --> GW
+    AA -- "public key distributed to" --> UA
 ```
 
 The private key never leaves auth-api. If the gateway or user-api is compromised, the attacker can only verify tokens, not forge them.
@@ -309,10 +301,10 @@ CREATE TABLE refresh_tokens (
 
 ### Entity Relationship
 
-```
-users ─────< federated          (one user can have multiple OIDC providers)
-  │
-  └────── refresh_tokens        (one refresh token per user, upserted on login)
+```mermaid
+erDiagram
+    users ||--o{ federated : "1:N — one user can have multiple OIDC providers"
+    users ||--o| refresh_tokens : "1:1 — one refresh token per user, upserted on login"
 ```
 
 ---

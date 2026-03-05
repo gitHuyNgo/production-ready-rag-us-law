@@ -19,27 +19,27 @@ Think of this as **buying and assembling the server rack**. After this lifecycle
 
 ### 1. VPC (Virtual Private Cloud)
 
-```
- ┌─────────────────────── VPC 10.0.0.0/16 ───────────────────────┐
- │                                                                 │
- │  ┌─ Public Subnets ──────────────────────────────────────────┐  │
- │  │  10.0.101.0/24 (us-east-1a)  ← Load Balancers live here  │  │
- │  │  10.0.102.0/24 (us-east-1b)                               │  │
- │  │  10.0.103.0/24 (us-east-1c)                               │  │
- │  └───────────────────────────────────────────────────────────┘  │
- │           │ Internet Gateway                                    │
- │           ▼                                                     │
- │  ┌─ NAT Gateway ──────────────────────────────────────────────┐ │
- │  │  Allows private subnets to reach the internet (outbound)   │ │
- │  │  Single NAT in non-prod; multi-AZ NAT for production HA   │ │
- │  └────────────────────────────────────────────────────────────┘ │
- │           │                                                     │
- │  ┌─ Private Subnets ─────────────────────────────────────────┐  │
- │  │  10.0.1.0/24 (us-east-1a)  ← EKS worker nodes live here  │  │
- │  │  10.0.2.0/24 (us-east-1b)                                 │  │
- │  │  10.0.3.0/24 (us-east-1c)                                 │  │
- │  └───────────────────────────────────────────────────────────┘  │
- └─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph VPC["VPC 10.0.0.0/16"]
+        subgraph PUB["Public Subnets — Load Balancers live here"]
+            P1["10.0.101.0/24 us-east-1a"]
+            P2["10.0.102.0/24 us-east-1b"]
+            P3["10.0.103.0/24 us-east-1c"]
+        end
+        IGW["Internet Gateway"]
+        NAT["NAT Gateway (Elastic IP)<br/>Allows private subnets to reach internet (outbound)<br/>Single NAT in non-prod; multi-AZ NAT for production HA"]
+        subgraph PRIV["Private Subnets — EKS worker nodes live here"]
+            PR1["10.0.1.0/24 us-east-1a"]
+            PR2["10.0.2.0/24 us-east-1b"]
+            PR3["10.0.3.0/24 us-east-1c"]
+        end
+    end
+
+    P1 --> IGW --> NAT
+    NAT --> PR1
+    NAT --> PR2
+    NAT --> PR3
 ```
 
 **Why three subnets in three AZs?** If `us-east-1a` has a datacenter fire, your pods reschedule to nodes in `us-east-1b` and `us-east-1c` automatically.
@@ -63,26 +63,12 @@ Without these tags, `kubectl apply` of an Ingress with an AWS load balancer will
 
 The control plane is the Kubernetes brain — it runs the API server, etcd (cluster state database), scheduler, and controller manager. AWS manages all of this; you never SSH into the control plane.
 
-```
- ┌── EKS Control Plane (managed by AWS) ──┐
- │                                         │
- │  API Server (port 443)                  │  ← kubectl talks to this
- │  etcd (cluster state)                   │  ← stores all YAML you apply
- │  Scheduler                              │  ← decides which node runs each pod
- │  Controller Manager                     │  ← ensures desired state = actual state
- │                                         │
- │  OIDC Provider (IRSA)                   │  ← lets pods assume IAM roles
- │                                         │
- └─────────────────────────────────────────┘
-          │
-          │ (private API endpoint)
-          ▼
- ┌── Managed Node Group ──────────────────┐
- │  EC2 instances (t3.medium by default)   │
- │  min: 1, max: 5, desired: 2            │
- │  50 GB disk per node                    │
- │  Spread across 3 private subnets        │
- └─────────────────────────────────────────┘
+```mermaid
+graph TD
+    CP["EKS Control Plane (managed by AWS)<br/>API Server :443 — kubectl talks to this<br/>etcd — stores all YAML you apply<br/>Scheduler — decides which node runs each pod<br/>Controller Manager — ensures desired state = actual state<br/>OIDC Provider (IRSA) — lets pods assume IAM roles"]
+    NG["Managed Node Group<br/>EC2 instances (t3.medium by default)<br/>min: 1, max: 5, desired: 2<br/>50 GB disk per node<br/>Spread across 3 private subnets"]
+
+    CP -- "private API endpoint" --> NG
 ```
 
 **`cluster_endpoint_public_access = true`** means you can run `kubectl` from your laptop. In production, restrict this to your office/VPN CIDR:
@@ -109,13 +95,14 @@ The EBS CSI driver is especially critical — without it, StatefulSets for Postg
 
 `enable_irsa = true` creates an OIDC identity provider. This allows individual pods to assume AWS IAM roles without giving the entire node a blanket permission set.
 
-```
- Traditional (bad):                     IRSA (good):
- ─────────────────                     ──────────────
- Node IAM Role                         Pod ServiceAccount
-   → ALL pods on this node               → specific IAM Role
-   → can access ALL S3 buckets            → can access ONLY its S3 bucket
-   → can read ALL secrets                 → can read ONLY its secrets
+```mermaid
+graph LR
+    subgraph BAD["Traditional (bad)"]
+        NR["Node IAM Role<br/>ALL pods on this node<br/>can access ALL S3 buckets<br/>can read ALL secrets"]
+    end
+    subgraph GOOD["IRSA (good)"]
+        SA["Pod ServiceAccount<br/>→ specific IAM Role<br/>can access ONLY its S3 bucket<br/>can read ONLY its secrets"]
+    end
 ```
 
 Example: the `ingestion-worker` pod needs S3 access to read uploaded law documents. With IRSA, only that pod's ServiceAccount gets `s3:GetObject` — the `frontend` pod on the same node cannot access S3 at all.

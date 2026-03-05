@@ -12,35 +12,35 @@ Two services collaborate:
 
 ## 2. System Diagram
 
-```
-                                 ┌─────────────────────────────┐
-                                 │     INGESTION (offline)      │
-                                 │                              │
-  Legal PDFs ──► Docling ──► LegalChunker ──► OpenAI Embed ──► Weaviate
-  (data/)        (convert)    (chunk)          (vectorize)      (store)
-                                 │                              │
-                                 │    After ingest: flush ──────► Redis
-                                 │    (clear semantic cache)     (invalidate)
-                                 └──────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph ING["INGESTION (offline)"]
+        PDF["Legal PDFs (data/)"]
+        DOC["Docling (convert)"]
+        LC["LegalChunker (chunk)"]
+        OAI["OpenAI Embed (vectorize)"]
+        WV_W["Weaviate (store)"]
+        RD_FL["Redis (flush semantic cache after ingest)"]
 
-                                 ┌─────────────────────────────┐
-                                 │     QUERY (online)           │
-                                 │                              │
-  User question ─────────────────► Semantic Cache (Redis)       │
-                                 │    hit? → return cached      │
-                                 │    miss ↓                    │
-                                 │  Weaviate ◄── embed query    │
-                                 │    ↓ top-25 chunks           │
-                                 │  BM25 Reranker               │
-                                 │    ↓ top-10 chunks           │
-                                 │  Cohere Reranker             │
-                                 │    ↓ top-5 chunks            │
-                                 │  Context Builder             │
-                                 │    ↓ formatted text          │
-                                 │  OpenAI LLM                  │
-                                 │    ↓ answer                  │
-                                 │  Cache + Memory append       │
-                                 └──────────────────────────────┘
+        PDF --> DOC --> LC --> OAI --> WV_W
+        WV_W --> RD_FL
+    end
+
+    subgraph QUERY["QUERY (online)"]
+        UQ["User question"]
+        SC["Semantic Cache (Redis)"]
+        CACHED["Return cached response"]
+        WV_R["Weaviate (embed query → top-25 chunks)"]
+        BM25["BM25 Reranker (top-10)"]
+        COHERE["Cohere Reranker (top-5)"]
+        CTX["Context Builder (formatted text)"]
+        LLM["OpenAI LLM (answer)"]
+        CACHE_MEM["Cache + Memory append"]
+
+        UQ --> SC
+        SC -- "hit" --> CACHED
+        SC -- "miss" --> WV_R --> BM25 --> COHERE --> CTX --> LLM --> CACHE_MEM
+    end
 ```
 
 ---
@@ -261,19 +261,11 @@ The LLM receives:
 2. **Context** — the formatted chunk text from Phase 5
 3. **Query** — the user's question
 
-```
-┌── System Prompt ──────────────────────────────────┐
-│ You are a legal research assistant. Answer based   │
-│ only on the provided context. Cite your sources.   │
-│ If the context does not contain the answer, say    │
-│ you don't have enough information.                 │
-├── Context ────────────────────────────────────────┤
-│ [Chunk 1] Source: USC Title 18 § 1341 ...          │
-│ [Chunk 2] Source: Katz v. United States ...         │
-├── User Query ─────────────────────────────────────┤
-│ What does the Fourth Amendment protect against?    │
-└───────────────────────────────────────────────────┘
-```
+| Section | Content |
+| --- | --- |
+| **System Prompt** | You are a legal research assistant. Answer based only on the provided context. Cite your sources. If the context does not contain the answer, say you don't have enough information. |
+| **Context** | [Chunk 1] Source: USC Title 18 § 1341 ...<br/>[Chunk 2] Source: Katz v. United States ... |
+| **User Query** | What does the Fourth Amendment protect against? |
 
 #### Phase 7: Cache Result
 
@@ -305,26 +297,19 @@ The WebSocket handler forwards each yielded chunk to the client in real time. Th
 
 ## 5. Ownership Model (ADR 003)
 
-```
-┌───────────────────────────┐        ┌───────────────────────────┐
-│      chat-api             │        │    ingestion-worker       │
-│                           │        │                           │
-│ Weaviate client (R+W):    │        │ Weaviate client (W only): │
-│   src/vector_store/       │        │   src/vector_store/       │
-│   - connect, retrieve,    │        │   - connect, schema init, │
-│     batch_load, close     │        │     batch_load, close     │
-│                           │        │   - retrieve: raises      │
-│ Redis cache (get+set):    │        │     NotImplementedError   │
-│   src/semantic_cache.py   │        │                           │
-│   - get, set, flush       │        │ Redis cache (flush only): │
-│                           │        │   src/semantic_cache.py   │
-│                           │        │   - flush, close          │
-└───────────────────────────┘        └───────────────────────────┘
-
-Shared library (libs/code-shared):
-  - BaseLLM, OpenAILLM
-  - AppError, exceptions
-  - NO Weaviate or Redis code
+```mermaid
+graph LR
+    subgraph CHAT["chat-api"]
+        CVC["src/vector_store/weaviate_client.py<br/>connect, retrieve ✓, batch_load ✓, close"]
+        CSC["src/semantic_cache.py<br/>get ✓, set ✓, flush ✓, close"]
+    end
+    subgraph ING["ingestion-worker"]
+        IVC["src/vector_store/weaviate_client.py<br/>connect, retrieve → NotImplementedError<br/>batch_load ✓, initialize_schema ✓, close"]
+        ISC["src/semantic_cache.py<br/>flush ✓, close ✓"]
+    end
+    subgraph SHARED["libs/code-shared"]
+        SH["BaseLLM, OpenAILLM<br/>AppError, exceptions<br/>NO Weaviate or Redis code"]
+    end
 ```
 
 Each service has its **own** Weaviate client and semantic cache module. They are not imported from a shared library. This was a deliberate decision (ADR 003) to:

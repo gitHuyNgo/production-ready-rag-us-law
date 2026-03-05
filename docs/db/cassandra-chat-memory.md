@@ -221,23 +221,15 @@ except Exception:
 
 ## Data Flow
 
-```
-User sends message with X-Session-Id: abc123
-  │
-  ├── chat_memory.get_recent_messages("abc123", limit=20)
-  │     └── Cassandra: SELECT ... WHERE session_id='abc123' LIMIT 20
-  │     └── Returns last 20 messages as conversation context
-  │
-  ├── RAG pipeline runs (retrieve, rerank, LLM)
-  │     └── LLM receives: system prompt + chat history + retrieved chunks + query
-  │
-  ├── Response generated
-  │
-  └── chat_memory.append_messages([
-        ChatMessageRecord("abc123", now, "user", "What is habeas corpus?"),
-        ChatMessageRecord("abc123", now+5s, "assistant", "Habeas corpus is..."),
-      ])
-        └── Cassandra: 2x INSERT INTO messages + 1x INSERT INTO sessions
+```mermaid
+flowchart TD
+    REQ["User sends message with X-Session-Id: abc123"]
+    LOAD["chat_memory.get_recent_messages('abc123', limit=20)<br/>Cassandra: SELECT WHERE session_id='abc123' LIMIT 20<br/>Returns last 20 messages as conversation context"]
+    RAG["RAG pipeline runs (retrieve, rerank, LLM)<br/>LLM receives: system prompt + chat history + retrieved chunks + query"]
+    RESP["Response generated"]
+    APPEND["chat_memory.append_messages([<br/>  ChatMessageRecord('abc123', now, 'user', query),<br/>  ChatMessageRecord('abc123', now+5s, 'assistant', response)<br/>])<br/>Cassandra: 2x INSERT INTO messages + 1x INSERT INTO sessions"]
+
+    REQ --> LOAD --> RAG --> RESP --> APPEND
 ```
 
 ---

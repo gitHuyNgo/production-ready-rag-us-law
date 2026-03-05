@@ -64,20 +64,16 @@ CREATE TABLE IF NOT EXISTS chat_memory.sessions (
 
 **Partition model:**
 
-```
-Partition: session_id = "abc123"
-  ┌──────────────────┬───────────┬──────────────────────────┐
-  │ timestamp        │ role      │ content                  │
-  ├──────────────────┼───────────┼──────────────────────────┤
-  │ 2025-03-01 12:00 │ user      │ What is habeas corpus?   │
-  │ 2025-03-01 12:01 │ assistant │ Habeas corpus is a...    │
-  │ 2025-03-01 12:02 │ user      │ When was it established? │
-  │ 2025-03-01 12:03 │ assistant │ The concept dates back...│
-  └──────────────────┴───────────┴──────────────────────────┘
+**Partition: session_id = "abc123"**
 
-Reading last 20 messages = single-partition scan = O(1) seek + O(20) read
-Appending a message = single-partition INSERT = O(1) (LSM append)
-```
+| timestamp | role | content |
+| --- | --- | --- |
+| 2025-03-01 12:00 | user | What is habeas corpus? |
+| 2025-03-01 12:01 | assistant | Habeas corpus is a... |
+| 2025-03-01 12:02 | user | When was it established? |
+| 2025-03-01 12:03 | assistant | The concept dates back... |
+
+Reading last 20 messages = single-partition scan = O(1) seek + O(20) read. Appending a message = single-partition INSERT = O(1) (LSM append).
 
 ### Fallback: InMemoryChatMemoryStore
 

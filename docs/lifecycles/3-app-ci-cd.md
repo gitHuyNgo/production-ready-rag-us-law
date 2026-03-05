@@ -31,20 +31,36 @@ Each service has its own Dockerfile and can be built independently:
 
 ## Pipeline Phases
 
-```
- PR opened / push to branch          merge to develop           merge to main
- ─────────────────────────          ─────────────────           ──────────────
- Phase A: CI                        Phase B: CD to Dev          Phase C: CD to Prod
- (test + build)                     (push image + deploy)       (approval + deploy)
+```mermaid
+flowchart LR
+    subgraph A["Phase A: CI — PR opened / push to branch"]
+        A1["detect changes"]
+        A2["lint"]
+        A3["unit test"]
+        A4["docker build"]
+        A5["security scan"]
+        A6["integration test"]
+        A1 --> A2 --> A3 --> A4 --> A5 --> A6
+    end
+    subgraph B["Phase B: CD to Dev — merge to develop"]
+        B1["build + push ECR"]
+        B2["kubectl set image"]
+        B3["rollout status"]
+        B4["smoke test"]
+        B1 --> B2 --> B3 --> B4
+    end
+    subgraph C["Phase C: CD to Prod — merge to main"]
+        C1["build + push ECR"]
+        C2["manual approval"]
+        C3["kubectl set image"]
+        C4["rollout status"]
+        C5["smoke test"]
+        C6["notify Slack"]
+        C1 --> C2 --> C3 --> C4 --> C5 --> C6
+    end
 
- ┌──────────────────┐              ┌──────────────────┐         ┌──────────────────┐
- │ detect changes   │              │ build + push ECR │         │ build + push ECR │
- │ lint             │              │ kubectl set image│         │ manual approval  │
- │ unit test        │              │ rollout status   │         │ kubectl set image│
- │ docker build     │              │ smoke test       │         │ rollout status   │
- │ security scan    │              └──────────────────┘         │ smoke test       │
- │ integration test │                                           │ notify Slack     │
- └──────────────────┘                                           └──────────────────┘
+    A --> B
+    A --> C
 ```
 
 ---
@@ -221,21 +237,14 @@ docker push 123456789.dkr.ecr.us-east-1.amazonaws.com/auth-api --all-tags
 
 **What is ECR?** Elastic Container Registry is AWS's Docker image storage. Think of it as a private Docker Hub that lives in your AWS account. It is close to your EKS cluster (same region, same AWS network), so image pulls are fast and free (no data transfer charges).
 
-```
- GitHub Actions runner                    AWS ECR
- ┌────────────────────┐                  ┌──────────────────────────┐
- │ docker build       │                  │ auth-api:abc123f         │
- │ docker push  ─────────────────────►   │ auth-api:dev-latest      │
- └────────────────────┘                  │ api-gateway:def456a      │
-                                         │ api-gateway:dev-latest   │
-                                         │ ...                      │
-                                         └──────────────────────────┘
-                                                    │
-                                                    │ docker pull (fast, same region)
-                                                    ▼
-                                         ┌──────────────────────────┐
-                                         │ EKS worker nodes         │
-                                         └──────────────────────────┘
+```mermaid
+flowchart LR
+    GHA["GitHub Actions runner<br/>docker build<br/>docker push"]
+    ECR["AWS ECR<br/>auth-api:abc123f<br/>auth-api:dev-latest<br/>api-gateway:def456a<br/>api-gateway:dev-latest<br/>..."]
+    EKS["EKS worker nodes"]
+
+    GHA -- "docker push" --> ECR
+    ECR -- "docker pull (fast, same region)" --> EKS
 ```
 
 ### Step 2: Deploy to Dev Cluster
@@ -771,18 +780,17 @@ jobs:
 
 The pipeline uses **OIDC federation** — no long-lived AWS access keys stored in GitHub secrets.
 
-```
-GitHub Actions                          AWS
-┌──────────────┐                       ┌───────────────────────┐
-│ Job starts   │                       │                       │
-│              │ ── OIDC token ──────► │ IAM OIDC Provider     │
-│              │                       │ (trusts GitHub)       │
-│              │ ◄── temporary creds ─ │                       │
-│              │    (15 min TTL)       │ AssumeRoleWithWebId   │
-│              │                       │                       │
-│ docker push  │ ─── ECR API call ──► │ ECR (image storage)   │
-│ kubectl      │ ─── EKS API call ──► │ EKS (deploy)          │
-└──────────────┘                       └───────────────────────┘
+```mermaid
+sequenceDiagram
+    participant GHA as GitHub Actions
+    participant OIDC as AWS IAM OIDC Provider (trusts GitHub)
+    participant ECR as AWS ECR (image storage)
+    participant EKS as AWS EKS (deploy)
+
+    GHA->>OIDC: OIDC token
+    OIDC-->>GHA: temporary creds (15 min TTL, AssumeRoleWithWebIdentity)
+    GHA->>ECR: docker push (ECR API call)
+    GHA->>EKS: kubectl (EKS API call)
 ```
 
 **Setup required in AWS:**
@@ -800,11 +808,16 @@ This is vastly more secure than storing `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS
 
 ## Branching Strategy
 
-```
-feature/new-chat-ui ──── PR ──── develop ──── PR ──── main
-                          │                     │
-                     CI only               CI + CD to dev      CD to prod
-                   (no deploy)            (auto deploy)     (manual approval)
+```mermaid
+flowchart LR
+    F["feature/new-chat-ui"]
+    D["develop"]
+    M["main"]
+
+    F -- "PR → CI only (no deploy)" --> D
+    D -- "merge → CI + CD to dev (auto deploy)" --> D
+    D -- "PR → CI only" --> M
+    M -- "merge → CD to prod (manual approval)" --> M
 ```
 
 | Branch | What triggers | What happens |

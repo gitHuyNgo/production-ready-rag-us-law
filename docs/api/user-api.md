@@ -136,15 +136,13 @@ def get_current_user_id(token: str) -> str:
     return sub
 ```
 
-```
-┌──────────┐      ┌─────────────┐      ┌───────────┐
-│  Client  │ ──►  │ api-gateway │ ──►  │ user-api  │
-│          │      │             │      │           │
-│ Bearer   │      │ verify JWT  │      │ verify JWT│
-│ token    │      │ with pubkey │      │ with same │
-│          │      │ add X-User  │      │ pubkey    │
-│          │      │ -Id header  │      │           │
-└──────────┘      └─────────────┘      └───────────┘
+```mermaid
+flowchart LR
+    C["Client<br/>Bearer token"]
+    G["api-gateway<br/>verify JWT with pubkey<br/>add X-User-Id header"]
+    U["user-api<br/>verify JWT with same pubkey"]
+
+    C --> G --> U
 ```
 
 Both gateway and user-api verify independently. The gateway adds `X-User-Id` for convenience, but user-api does not trust it blindly — it re-verifies the JWT itself.

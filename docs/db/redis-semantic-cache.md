@@ -11,18 +11,17 @@
 
 For every RAG query, the chat-api computes the query's embedding vector (3072-dimensional float array from `text-embedding-3-large`). Before running the full retrieval + LLM pipeline, it checks Redis for a previously cached response whose embedding is "close enough" (cosine similarity >= threshold).
 
-```
-Query: "What does the 4th amendment protect?"
-  │
-  ├── Compute embedding → [0.012, -0.034, 0.078, ..., 0.005]  (3072 floats)
-  │
-  ├── Redis KNN search: find the 1 nearest cached embedding
-  │     └── distance = 0.03 → similarity = 1 - 0.03 = 0.97
-  │
-  ├── similarity (0.97) >= threshold (0.95)?  YES → cache hit
-  │     └── return cached response (skip RAG + LLM entirely)
-  │
-  └── If NO → run full RAG pipeline → cache result for next time
+```mermaid
+flowchart TD
+    Q["Query: 'What does the 4th amendment protect?'"]
+    EMB["Compute embedding<br/>[0.012, -0.034, 0.078, ..., 0.005] (3072 floats)"]
+    KNN["Redis KNN search: find 1 nearest cached embedding<br/>distance = 0.03 → similarity = 1 - 0.03 = 0.97"]
+    HIT["Cache hit — return cached response<br/>(skip RAG + LLM entirely)"]
+    MISS["Run full RAG pipeline → cache result for next time"]
+
+    Q --> EMB --> KNN
+    KNN -- "similarity 0.97 >= threshold 0.95 → YES" --> HIT
+    KNN -- "NO" --> MISS
 ```
 
 **Impact:**

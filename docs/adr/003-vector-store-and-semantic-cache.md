@@ -21,37 +21,19 @@ Initially, both Weaviate client and Redis semantic cache code lived in a shared 
 
 Each service owns its own Weaviate client and semantic cache module. The shared library contains only exceptions, LLM interfaces, and utilities — no Weaviate or Redis code.
 
-```
-┌─────────────────────────────────┐    ┌──────────────────────────────────┐
-│         chat-api                │    │      ingestion-worker            │
-│                                 │    │                                  │
-│  src/vector_store/              │    │  src/vector_store/               │
-│    weaviate_client.py           │    │    weaviate_client.py            │
-│    ├── connect()                │    │    ├── connect()                 │
-│    ├── retrieve() ✓             │    │    ├── retrieve() → raises       │
-│    ├── batch_load() ✓           │    │    │   NotImplementedError       │
-│    ├── initialize_schema() ✓    │    │    ├── batch_load() ✓            │
-│    └── close() ✓                │    │    ├── initialize_schema() ✓     │
-│                                 │    │    └── close() ✓                 │
-│  src/semantic_cache.py          │    │                                  │
-│    ├── get() ✓                  │    │  src/semantic_cache.py           │
-│    ├── set() ✓                  │    │    ├── get() → NOT USED          │
-│    ├── flush() ✓                │    │    ├── set() → NOT USED          │
-│    └── close() ✓                │    │    ├── flush() ✓                 │
-│                                 │    │    └── close() ✓                 │
-└─────────────────────────────────┘    └──────────────────────────────────┘
-
-┌──────────────────────────────────┐
-│     libs/code-shared             │
-│                                  │
-│  core/exceptions.py              │  ← AppError, shared error types
-│  llm/base.py                     │  ← BaseLLM interface
-│  llm/openai_llm.py               │  ← OpenAILLM implementation
-│                                  │
-│  NO Weaviate code                │
-│  NO Redis code                   │
-│  NO numpy                        │
-└──────────────────────────────────┘
+```mermaid
+graph LR
+    subgraph CHAT["chat-api"]
+        CVC["src/vector_store/weaviate_client.py<br/>connect() ✓<br/>retrieve() ✓<br/>batch_load() ✓<br/>initialize_schema() ✓<br/>close() ✓"]
+        CSC["src/semantic_cache.py<br/>get() ✓<br/>set() ✓<br/>flush() ✓<br/>close() ✓"]
+    end
+    subgraph ING["ingestion-worker"]
+        IVC["src/vector_store/weaviate_client.py<br/>connect() ✓<br/>retrieve() → NotImplementedError<br/>batch_load() ✓<br/>initialize_schema() ✓<br/>close() ✓"]
+        ISC["src/semantic_cache.py<br/>get() NOT USED<br/>set() NOT USED<br/>flush() ✓<br/>close() ✓"]
+    end
+    subgraph SHARED["libs/code-shared"]
+        SH["core/exceptions.py — AppError, shared error types<br/>llm/base.py — BaseLLM interface<br/>llm/openai_llm.py — OpenAILLM implementation<br/>NO Weaviate code | NO Redis code | NO numpy"]
+    end
 ```
 
 ### Contract Between Services

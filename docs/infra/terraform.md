@@ -19,38 +19,34 @@ The EKS API endpoint is publicly accessible by default; restrict `cluster_endpoi
 
 ## Architecture
 
-```
-┌─────────────────────────────── AWS Region (us-east-1) ────────────────────────────────┐
-│                                                                                        │
-│  ┌──────────────────────────── VPC 10.0.0.0/16 ──────────────────────────────────┐    │
-│  │                                                                                │    │
-│  │  Public Subnets (load balancers, NAT gateway)                                  │    │
-│  │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐                   │    │
-│  │  │ 10.0.101.0/24  │  │ 10.0.102.0/24  │  │ 10.0.103.0/24  │                   │    │
-│  │  │  us-east-1a    │  │  us-east-1b    │  │  us-east-1c    │                   │    │
-│  │  └───────┬────────┘  └───────┬────────┘  └───────┬────────┘                   │    │
-│  │          │ Internet GW       │                    │                             │    │
-│  │          ▼                   │                    │                             │    │
-│  │    ┌─── NAT Gateway ────┐   │                    │                             │    │
-│  │    │ Elastic IP         │   │                    │                             │    │
-│  │    └─────────┬──────────┘   │                    │                             │    │
-│  │              │              │                    │                             │    │
-│  │  Private Subnets (EKS nodes, pods, databases)                                  │    │
-│  │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐                   │    │
-│  │  │ 10.0.1.0/24    │  │ 10.0.2.0/24    │  │ 10.0.3.0/24    │                   │    │
-│  │  │  us-east-1a    │  │  us-east-1b    │  │  us-east-1c    │                   │    │
-│  │  │  ┌──────────┐  │  │  ┌──────────┐  │  │                │                   │    │
-│  │  │  │ EKS Node │  │  │  │ EKS Node │  │  │  (auto-scales) │                   │    │
-│  │  │  │ t3.medium│  │  │  │ t3.medium│  │  │                │                   │    │
-│  │  │  └──────────┘  │  │  └──────────┘  │  │                │                   │    │
-│  │  └────────────────┘  └────────────────┘  └────────────────┘                   │    │
-│  └────────────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                        │
-│  ┌── EKS Control Plane (managed by AWS) ──────────────────────────────────────────┐   │
-│  │  API Server (port 443)  │  etcd  │  Scheduler  │  Controller Manager           │   │
-│  │  OIDC Provider (IRSA)   │  Add-ons: CoreDNS, kube-proxy, vpc-cni, ebs-csi     │   │
-│  └────────────────────────────────────────────────────────────────────────────────┘   │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph AWS["AWS Region us-east-1"]
+        subgraph VPC["VPC 10.0.0.0/16"]
+            subgraph PUB["Public Subnets — Load Balancers, NAT Gateway"]
+                PUB1["10.0.101.0/24 us-east-1a"]
+                PUB2["10.0.102.0/24 us-east-1b"]
+                PUB3["10.0.103.0/24 us-east-1c"]
+            end
+            IGW["Internet Gateway"]
+            NAT["NAT Gateway (Elastic IP)"]
+            subgraph PRIV["Private Subnets — EKS Nodes, Pods, Databases"]
+                PRIV1["10.0.1.0/24 us-east-1a<br/>EKS Node t3.medium"]
+                PRIV2["10.0.2.0/24 us-east-1b<br/>EKS Node t3.medium"]
+                PRIV3["10.0.3.0/24 us-east-1c<br/>(auto-scales)"]
+            end
+        end
+        EKS["EKS Control Plane (managed by AWS)<br/>API Server :443 | etcd | Scheduler | Controller Manager<br/>OIDC Provider (IRSA)<br/>Add-ons: CoreDNS, kube-proxy, vpc-cni, ebs-csi"]
+    end
+
+    PUB1 --> IGW
+    IGW --> NAT
+    NAT --> PRIV1
+    NAT --> PRIV2
+    NAT --> PRIV3
+    EKS --> PRIV1
+    EKS --> PRIV2
+    EKS --> PRIV3
 ```
 
 ---

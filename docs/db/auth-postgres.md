@@ -102,25 +102,27 @@ CREATE TABLE refresh_tokens (
 
 ## Entity Relationships
 
-```
-┌──────────────────┐
-│      users       │
-│──────────────────│
-│ PK: username     │───────────┐
-│     email        │           │
-│     password     │           │
-└──────────────────┘           │
-         │                     │
-         │ 1:N                 │ 1:1
-         ▼                     ▼
-┌──────────────────┐  ┌─────────────────────┐
-│    federated     │  │   refresh_tokens    │
-│──────────────────│  │─────────────────────│
-│ PK: (provider,   │  │ PK: user_id         │
-│      subject_id) │  │     token           │
-│     user_id ─────│  │     expires_at      │
-└──────────────────┘  │     revoked         │
-                      └─────────────────────┘
+```mermaid
+erDiagram
+    users {
+        varchar username PK
+        varchar email
+        varchar password
+    }
+    federated {
+        varchar provider PK
+        varchar subject_id PK
+        varchar user_id FK
+    }
+    refresh_tokens {
+        varchar user_id PK
+        varchar token
+        timestamp expires_at
+        boolean revoked
+    }
+
+    users ||--o{ federated : "1:N (one user, many OIDC providers)"
+    users ||--o| refresh_tokens : "1:1 (one refresh token per user)"
 ```
 
 ---

@@ -52,17 +52,17 @@ Phase 4: Database Migrations
 
 The ingress controller is the front door to your cluster. It watches for `Ingress` resources and configures NGINX to route traffic accordingly. On EKS, it automatically provisions an AWS Network Load Balancer (NLB) that has a public IP.
 
-```
-Internet
-   │
-   ▼
-AWS NLB (public IP)                  ← created automatically by ingress-nginx
-   │
-   ▼
-ingress-nginx pod (in cluster)       ← reads Ingress resources, configures routing
-   │
-   ├── Host: yourdomain.com /        → frontend:80
-   └── Host: yourdomain.com /api     → api-gateway:80
+```mermaid
+graph TD
+    INET["Internet"]
+    NLB["AWS NLB (public IP) — created automatically by ingress-nginx"]
+    NGINX["ingress-nginx pod (in cluster)<br/>reads Ingress resources, configures routing"]
+    FE["frontend:80"]
+    GW["api-gateway:80"]
+
+    INET --> NLB --> NGINX
+    NGINX -- "Host: yourdomain.com /" --> FE
+    NGINX -- "Host: yourdomain.com /api" --> GW
 ```
 
 **Installation:**
@@ -294,34 +294,16 @@ If the pod moves to a different node:
   → Data is preserved
 ```
 
-```
- ┌─── Your Pod ────────────────────────┐
- │  Container: postgres                 │
- │    mountPath: /var/lib/postgresql     │
- │         │                            │
- └─────────│────────────────────────────┘
-           │
- ┌─────────▼────────────────────────────┐
- │  PersistentVolumeClaim (PVC)         │
- │    name: auth-db-data-auth-db-0      │
- │    storage: 10Gi                     │
- │    accessMode: ReadWriteOnce         │
- └──────────│───────────────────────────┘
-            │ bound to
- ┌──────────▼───────────────────────────┐
- │  PersistentVolume (PV)               │
- │    (auto-created by StorageClass)    │
- │    volumeHandle: vol-0abc123def456   │
- └──────────│───────────────────────────┘
-            │ backed by
- ┌──────────▼───────────────────────────┐
- │  AWS EBS Volume (real disk)          │
- │    vol-0abc123def456                 │
- │    10 GiB, gp3, us-east-1a          │
- │    Exists independently of any EC2   │
- │    Survives node crashes             │
- │    Billed at $0.08/GB/month          │
- └──────────────────────────────────────┘
+```mermaid
+graph TD
+    POD["Pod — Container: postgres<br/>mountPath: /var/lib/postgresql"]
+    PVC["PersistentVolumeClaim (PVC)<br/>name: auth-db-data-auth-db-0<br/>storage: 10Gi<br/>accessMode: ReadWriteOnce"]
+    PV["PersistentVolume (PV)<br/>auto-created by StorageClass<br/>volumeHandle: vol-0abc123def456"]
+    EBS["AWS EBS Volume (real disk)<br/>vol-0abc123def456<br/>10 GiB, gp3, us-east-1a<br/>Exists independently of any EC2<br/>Survives node crashes<br/>$0.08/GB/month"]
+
+    POD --> PVC
+    PVC -- "bound to" --> PV
+    PV -- "backed by" --> EBS
 ```
 
 **`ReadWriteOnce` (RWO):** Only one node can mount the volume at a time. This is correct for databases (Postgres, Mongo, etc.) because they expect exclusive access to their data directory.

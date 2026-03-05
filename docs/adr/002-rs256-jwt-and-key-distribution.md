@@ -22,30 +22,14 @@ ES256 (asymmetric):    Same as RS256 but with elliptic curves
 
 ### Key Distribution
 
-```
-                      ┌─────────────────┐
-                      │    auth-api     │
-                      │                 │
-                      │  PRIVATE KEY    │ ← signs access_token + refresh_token
-                      │  (PEM file)     │
-                      │                 │
-                      │  PUBLIC KEY     │ ← verifies own tokens (/me endpoint)
-                      │  (PEM file)     │
-                      └────────┬────────┘
-                               │
-                    public key distributed to:
-                               │
-                  ┌────────────┴────────────┐
-                  ▼                         ▼
-           ┌─────────────┐          ┌─────────────┐
-           │ api-gateway │          │  user-api   │
-           │             │          │             │
-           │ PUBLIC KEY  │          │ PUBLIC KEY  │
-           │ (read only) │          │ (read only) │
-           │             │          │             │
-           │ Verifies:   │          │ Verifies:   │
-           │ all requests│          │ /profiles/* │
-           └─────────────┘          └─────────────┘
+```mermaid
+graph TD
+    AA["auth-api<br/>PRIVATE KEY (PEM) — signs access_token + refresh_token<br/>PUBLIC KEY (PEM) — verifies own tokens /me endpoint"]
+    GW["api-gateway<br/>PUBLIC KEY only (read-only)<br/>Verifies: all requests"]
+    UA["user-api<br/>PUBLIC KEY only (read-only)<br/>Verifies: /profiles/*"]
+
+    AA -- "public key distributed to" --> GW
+    AA -- "public key distributed to" --> UA
 ```
 
 ### Configuration

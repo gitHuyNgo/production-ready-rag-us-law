@@ -8,22 +8,24 @@ LLMs are stateless — they have no memory of previous messages. To support mult
 
 ## 2. Architecture
 
-```
-┌──────────────┐      ┌─────────────────┐      ┌───────────────────────────┐
-│   Client     │      │    chat-api     │      │   ChatMemoryStore         │
-│              │      │                 │      │   (interface)             │
-│ session_id ──┼──────► chat_router     │      │                           │
-│ "What is..." │      │   │             │      │  ┌─── Cassandra ────────┐ │
-│              │      │   │ load history│      │  │ list_sessions()      │ │
-│              │      │   ▼             │      │  │ get_recent_messages()│ │
-│              │      │ RAG pipeline    │      │  │ append_messages()    │ │
-│              │      │   │             │      │  └──────────────────────┘ │
-│              │      │   │ generate    │      │         OR                │
-│ ◄────────────┼──────┤   ▼             │      │  ┌─── InMemory ────────┐ │
-│ "Habeas      │      │ append to memory├──────►  │ (Python dict)       │ │
-│  corpus..."  │      │                 │      │  │ (dev/test fallback) │ │
-│              │      │                 │      │  └──────────────────────┘ │
-└──────────────┘      └─────────────────┘      └───────────────────────────┘
+```mermaid
+flowchart LR
+    C["Client<br/>session_id<br/>'What is...'"]
+    subgraph API["chat-api"]
+        CR["chat_router"]
+        RAG["RAG pipeline"]
+        MEM["append to memory"]
+    end
+    subgraph STORE["ChatMemoryStore (interface)"]
+        CASS["Cassandra<br/>list_sessions()<br/>get_recent_messages()<br/>append_messages()"]
+        INMEM["InMemory (Python dict)<br/>dev/test fallback"]
+    end
+
+    C -- "session_id + query" --> CR
+    CR -- "load history" --> RAG
+    RAG -- "generate" --> MEM
+    MEM --> STORE
+    API -- "response" --> C
 ```
 
 ---
@@ -115,27 +117,21 @@ CREATE TABLE IF NOT EXISTS chat_memory.sessions (
 
 ### Partition Model
 
-```
-messages table:
+**messages table — Partition: session_id = "abc123"**
 
-Partition: session_id = "abc123"
-┌──────────────────────────────────────────────────────┐
-│ timestamp              │ role      │ content          │
-│────────────────────────│───────────│──────────────────│
-│ 2025-03-01T12:00:00Z   │ user      │ What is habeas...│
-│ 2025-03-01T12:00:05Z   │ assistant │ Habeas corpus... │
-│ 2025-03-01T12:01:00Z   │ user      │ And Miranda?     │
-│ 2025-03-01T12:01:04Z   │ assistant │ Miranda rights...│
-└──────────────────────────────────────────────────────┘
+| timestamp | role | content |
+| --- | --- | --- |
+| 2025-03-01T12:00:00Z | user | What is habeas corpus? |
+| 2025-03-01T12:00:05Z | assistant | Habeas corpus... |
+| 2025-03-01T12:01:00Z | user | And Miranda? |
+| 2025-03-01T12:01:04Z | assistant | Miranda rights... |
 
-Partition: session_id = "def456"
-┌──────────────────────────────────────────────────────┐
-│ timestamp              │ role      │ content          │
-│────────────────────────│───────────│──────────────────│
-│ 2025-03-02T09:00:00Z   │ user      │ Tax fraud laws?  │
-│ 2025-03-02T09:00:08Z   │ assistant │ Under Title 26...│
-└──────────────────────────────────────────────────────┘
-```
+**Partition: session_id = "def456"**
+
+| timestamp | role | content |
+| --- | --- | --- |
+| 2025-03-02T09:00:00Z | user | Tax fraud laws? |
+| 2025-03-02T09:00:08Z | assistant | Under Title 26... |
 
 All messages for a session are co-located on the same Cassandra node (same partition). Reading the last 20 messages for a session is a single-partition read — the fastest possible operation in Cassandra.
 
@@ -244,19 +240,20 @@ Kubernetes (prod)            Cassandra StatefulSet → CassandraChatMemoryStore
 
 4. Build LLM input:
    system_prompt + conversation_history + retrieved_chunks + user_query
-   ┌────────────────────────────────────────────────┐
-   │ System: You are a legal assistant...            │
-   │                                                 │
-   │ Previous conversation:                          │
-   │ User: What are Miranda rights?                  │
-   │ Assistant: Miranda rights are...                │
-   │                                                 │
-   │ Retrieved context:                              │
-   │ [Chunk 1] Source: Black's Law Dictionary...     │
-   │ [Chunk 2] Source: Boumediene v. Bush...         │
-   │                                                 │
-   │ User: What is habeas corpus?                    │
-   └────────────────────────────────────────────────┘
+
+   ```
+   System: You are a legal assistant...
+
+   Previous conversation:
+   User: What are Miranda rights?
+   Assistant: Miranda rights are...
+
+   Retrieved context:
+   [Chunk 1] Source: Black's Law Dictionary...
+   [Chunk 2] Source: Boumediene v. Bush...
+
+   User: What is habeas corpus?
+   ```
 
 5. LLM generates response:
    "Habeas corpus is a legal principle that requires..."
@@ -306,11 +303,14 @@ The chat memory provides the LLM with conversational context so it can resolve p
 
 ### Multiple chat-api pods
 
-```
-Pod 1 (chat-api)  ──► Cassandra cluster ◄── Pod 2 (chat-api)
-                        │
-                        └── All pods read/write the same data
-                            Session abc123 is accessible from any pod
+```mermaid
+flowchart LR
+    P1["Pod 1 (chat-api)"]
+    CASS["Cassandra cluster<br/>All pods read/write the same data<br/>Session abc123 accessible from any pod"]
+    P2["Pod 2 (chat-api)"]
+
+    P1 --> CASS
+    P2 --> CASS
 ```
 
 With Cassandra, any chat-api pod can serve any session. With in-memory store, each pod has its own isolated data — a user would need to always hit the same pod (sticky sessions).
