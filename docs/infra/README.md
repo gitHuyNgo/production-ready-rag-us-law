@@ -2,16 +2,15 @@
 
 This folder documents the infrastructure layer for the US Law RAG system.
 
-| Document | Description |
-|----------|-------------|
-| [terraform](terraform.md) | AWS EKS cluster provisioning with Terraform — VPC, node groups, add-ons |
-| [kubernetes](kubernetes.md) | Kubernetes manifests — namespaces, deployments, services, ingress |
+| Document                    | Description                                                              |
+| --------------------------- | ------------------------------------------------------------------------ |
+| [terraform](terraform.md)   | AWS EKS cluster provisioning with Terraform — VPC, node groups, add-ons  |
+| [kubernetes](kubernetes.md) | Kubernetes manifests — namespaces, deployments, services, ingress        |
 | [monitoring](monitoring.md) | Observability stack — Prometheus, Grafana, Alertmanager, ServiceMonitors |
 
 All infrastructure lives under `infra/` at the repository root:
 
 ```
-infra/
 ├── terraform/          # EKS cluster provisioning
 │   ├── main.tf
 │   ├── variables.tf

@@ -2,7 +2,7 @@
 
 This document describes the Terraform configuration used to provision the AWS EKS cluster and the supporting VPC network for the US Law RAG system.
 
-All Terraform files live in `infra/terraform/`.
+All Terraform files live in `terraform/`.
 
 ---
 
@@ -19,11 +19,11 @@ The EKS API endpoint is publicly accessible by default; restrict `cluster_endpoi
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `main.tf` | Provider, VPC module, EKS module |
+| File           | Purpose                                                       |
+| -------------- | ------------------------------------------------------------- |
+| `main.tf`      | Provider, VPC module, EKS module                              |
 | `variables.tf` | All tuneable inputs (region, cluster name, node sizing, tags) |
-| `outputs.tf` | Cluster endpoint, OIDC URL, subnet IDs, kubeconfig command |
+| `outputs.tf`   | Cluster endpoint, OIDC URL, subnet IDs, kubeconfig command    |
 
 ---
 
@@ -39,32 +39,32 @@ The EKS API endpoint is publicly accessible by default; restrict `cluster_endpoi
 
 ## Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `aws_region` | `us-east-1` | AWS region |
-| `cluster_name` | `rag-us-law` | EKS cluster name |
-| `cluster_version` | `1.32` | Kubernetes version |
-| `vpc_cidr` | `10.0.0.0/16` | VPC CIDR block |
+| Variable              | Default         | Description                           |
+| --------------------- | --------------- | ------------------------------------- |
+| `aws_region`          | `us-east-1`     | AWS region                            |
+| `cluster_name`        | `rag-us-law`    | EKS cluster name                      |
+| `cluster_version`     | `1.32`          | Kubernetes version                    |
+| `vpc_cidr`            | `10.0.0.0/16`   | VPC CIDR block                        |
 | `node_instance_types` | `["t3.medium"]` | EC2 instance types for the node group |
-| `node_min_size` | `1` | Minimum nodes |
-| `node_max_size` | `5` | Maximum nodes |
-| `node_desired_size` | `2` | Desired nodes |
-| `tags` | see file | Common resource tags |
+| `node_min_size`       | `1`             | Minimum nodes                         |
+| `node_max_size`       | `5`             | Maximum nodes                         |
+| `node_desired_size`   | `2`             | Desired nodes                         |
+| `tags`                | see file        | Common resource tags                  |
 
 ---
 
 ## Outputs
 
-| Output | Description |
-|--------|-------------|
-| `cluster_name` | EKS cluster name |
-| `cluster_endpoint` | Kubernetes API server endpoint |
-| `cluster_certificate_authority_data` | Base64 CA data (sensitive) |
-| `cluster_oidc_issuer_url` | OIDC provider URL for IRSA |
-| `vpc_id` | VPC ID |
-| `private_subnets` | Private subnet IDs |
-| `public_subnets` | Public subnet IDs |
-| `kubeconfig_command` | Ready-to-run `aws eks update-kubeconfig` command |
+| Output                               | Description                                      |
+| ------------------------------------ | ------------------------------------------------ |
+| `cluster_name`                       | EKS cluster name                                 |
+| `cluster_endpoint`                   | Kubernetes API server endpoint                   |
+| `cluster_certificate_authority_data` | Base64 CA data (sensitive)                       |
+| `cluster_oidc_issuer_url`            | OIDC provider URL for IRSA                       |
+| `vpc_id`                             | VPC ID                                           |
+| `private_subnets`                    | Private subnet IDs                               |
+| `public_subnets`                     | Public subnet IDs                                |
+| `kubeconfig_command`                 | Ready-to-run `aws eks update-kubeconfig` command |
 
 ---
 

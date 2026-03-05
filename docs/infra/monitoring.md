@@ -1,6 +1,6 @@
 # Monitoring — Prometheus, Grafana & Alertmanager
 
-This document describes the observability stack for the US Law RAG system. All monitoring configuration lives in `infra/monitoring/`.
+This document describes the observability stack for the US Law RAG system. All monitoring configuration lives in `monitoring/`.
 
 ---
 
@@ -20,10 +20,10 @@ Application services expose a `/metrics` endpoint (using `prometheus-fastapi-ins
 
 ## Files
 
-| File | Purpose |
-|------|---------|
+| File                                | Purpose                                         |
+| ----------------------------------- | ----------------------------------------------- |
 | `kube-prometheus-stack-values.yaml` | Helm values — enables/configures all components |
-| `service-monitors.yaml` | `ServiceMonitor` CRDs for each FastAPI service |
+| `service-monitors.yaml`             | `ServiceMonitor` CRDs for each FastAPI service  |
 
 ---
 
@@ -55,12 +55,12 @@ Application services expose a `/metrics` endpoint (using `prometheus-fastapi-ins
 
 `service-monitors.yaml` registers ServiceMonitors in the `monitoring` namespace for:
 
-| ServiceMonitor | Target | Scrape path | Interval |
-|----------------|--------|-------------|----------|
-| `api-gateway` | `app: api-gateway` in `rag-us-law` | `/metrics` | 30s |
-| `auth-api` | `app: auth-api` in `rag-us-law` | `/metrics` | 30s |
-| `user-api` | `app: user-api` in `rag-us-law` | `/metrics` | 30s |
-| `chat-api` | `app: chat-api` in `rag-us-law` | `/metrics` | 30s |
+| ServiceMonitor | Target                             | Scrape path | Interval |
+| -------------- | ---------------------------------- | ----------- | -------- |
+| `api-gateway`  | `app: api-gateway` in `rag-us-law` | `/metrics`  | 30s      |
+| `auth-api`     | `app: auth-api` in `rag-us-law`    | `/metrics`  | 30s      |
+| `user-api`     | `app: user-api` in `rag-us-law`    | `/metrics`  | 30s      |
+| `chat-api`     | `app: chat-api` in `rag-us-law`    | `/metrics`  | 30s      |
 
 > Each FastAPI service must include `prometheus-fastapi-instrumentator` and call `Instrumentator().instrument(app).expose(app)` during startup for the `/metrics` endpoint to exist.
 

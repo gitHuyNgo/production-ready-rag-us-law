@@ -1,6 +1,6 @@
 # Kubernetes — Manifests and Deployment
 
-This document describes the Kubernetes manifests for the US Law RAG system. All manifests live in `infra/k8s/base/` and are managed with Kustomize.
+This document describes the Kubernetes manifests for the US Law RAG system. All manifests live in `k8s/base/` and are managed with Kustomize.
 
 ---
 
@@ -26,30 +26,30 @@ ingestion-worker  (no HTTP — runs as a background worker)
 
 ## Files
 
-| File | Contents |
-|------|---------|
-| `namespace.yaml` | `rag-us-law` namespace |
-| `api-gateway.yaml` | Deployment + ClusterIP Service (port 8080 → 80) |
-| `auth-api.yaml` | Deployment + ClusterIP Service (port 8001) |
-| `user-api.yaml` | Deployment + ClusterIP Service (port 8002) |
-| `chat-api.yaml` | Deployment + ClusterIP Service (port 8000) |
-| `ingestion-worker.yaml` | Deployment only — no service exposed |
-| `frontend.yaml` | Deployment + ClusterIP Service (port 80) |
-| `ingress.yaml` | NGINX Ingress routing rules |
-| `kustomization.yaml` | Kustomize entrypoint listing all resources |
+| File                    | Contents                                        |
+| ----------------------- | ----------------------------------------------- |
+| `namespace.yaml`        | `rag-us-law` namespace                          |
+| `api-gateway.yaml`      | Deployment + ClusterIP Service (port 8080 → 80) |
+| `auth-api.yaml`         | Deployment + ClusterIP Service (port 8001)      |
+| `user-api.yaml`         | Deployment + ClusterIP Service (port 8002)      |
+| `chat-api.yaml`         | Deployment + ClusterIP Service (port 8000)      |
+| `ingestion-worker.yaml` | Deployment only — no service exposed            |
+| `frontend.yaml`         | Deployment + ClusterIP Service (port 80)        |
+| `ingress.yaml`          | NGINX Ingress routing rules                     |
+| `kustomization.yaml`    | Kustomize entrypoint listing all resources      |
 
 ---
 
 ## Services and Resources
 
-| Service | Replicas | CPU Request/Limit | Memory Request/Limit |
-|---------|----------|-------------------|----------------------|
-| api-gateway | 2 | 100m / 500m | 128Mi / 512Mi |
-| auth-api | 2 | 100m / 500m | 128Mi / 512Mi |
-| user-api | 2 | 100m / 500m | 128Mi / 512Mi |
-| chat-api | 2 | 200m / 1000m | 256Mi / 1Gi |
-| ingestion-worker | 1 | 200m / 1000m | 256Mi / 2Gi |
-| frontend | 2 | 50m / 200m | 64Mi / 256Mi |
+| Service          | Replicas | CPU Request/Limit | Memory Request/Limit |
+| ---------------- | -------- | ----------------- | -------------------- |
+| api-gateway      | 2        | 100m / 500m       | 128Mi / 512Mi        |
+| auth-api         | 2        | 100m / 500m       | 128Mi / 512Mi        |
+| user-api         | 2        | 100m / 500m       | 128Mi / 512Mi        |
+| chat-api         | 2        | 200m / 1000m      | 256Mi / 1Gi          |
+| ingestion-worker | 1        | 200m / 1000m      | 256Mi / 2Gi          |
+| frontend         | 2        | 50m / 200m        | 64Mi / 256Mi         |
 
 `chat-api` and `ingestion-worker` receive higher limits because they run the RAG pipeline and LLM calls.
 
