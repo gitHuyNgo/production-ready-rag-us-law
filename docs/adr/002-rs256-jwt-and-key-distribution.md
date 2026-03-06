@@ -153,6 +153,25 @@ Other services fetch and cache the public key
 - Store in `tests/fixtures/` and set `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH` in conftest.py
 - Tests are fully isolated from production keys
 
+### Production Key Management
+
+In production, PEM files are never stored on disk or passed through CI/CD. The application config supports two injection methods — both handled by the `model_validator` in each service's `config.py` at startup with no code changes needed per environment:
+
+| Method | When to use | How |
+| --- | --- | --- |
+| `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH` | Docker Compose, local k8s | Mount PEM file as volume; set path as env var |
+| `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` | AWS ECS, AWS Secrets Manager | Inject PEM content directly as env var |
+
+For Kubernetes on AWS EKS, the recommended approach is **External Secrets Operator (ESO) + AWS Secrets Manager**:
+
+1. PEM keys are generated locally (`openssl`) and uploaded to AWS Secrets Manager once
+2. Terraform registers the EKS cluster's OIDC endpoint with AWS IAM and creates an IAM role with a trust policy scoped to the ESO ServiceAccount
+3. ESO runs inside the cluster and authenticates to AWS via IRSA (keyless — EKS mounts a signed token into the ESO pod, which it exchanges for temporary AWS credentials)
+4. ESO reads from Secrets Manager and creates the Kubernetes Secrets that pods load via `envFrom.secretRef`
+5. GitHub Actions builds and deploys images only — it has no access to secret values
+
+See [Kubernetes — Secrets and ConfigMaps](../infra/kubernetes.md#secrets-and-configmaps) for the full setup with Terraform and Kubernetes manifests.
+
 ## Related
 
 - [ADR 001](001-microservices-and-gateway.md) — microservices architecture (why multiple verifiers exist)
