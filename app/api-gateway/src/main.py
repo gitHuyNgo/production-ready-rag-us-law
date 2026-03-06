@@ -153,9 +153,13 @@ async def proxy_chat_http(request: Request, path: str):
 # ---------------------------------------------------------------------------
 @app.websocket("/chat/")
 async def proxy_chat_websocket(websocket: WebSocket):
+    # Browsers cannot set custom headers on WebSocket connections, so the
+    # frontend passes the token as ?token=... in the query string instead.
     token = websocket.headers.get("authorization") or ""
     if token.lower().startswith("bearer "):
         token = token[7:].strip()
+    if not token:
+        token = websocket.query_params.get("token") or ""
     sub = verify_token(token) if token else None
     if not sub:
         await websocket.close(code=1008, reason="Unauthorized")
@@ -165,5 +169,8 @@ async def proxy_chat_websocket(websocket: WebSocket):
     query_string = websocket.scope.get("query_string")
     if query_string:
         qs = query_string.decode("utf-8") if isinstance(query_string, bytes) else query_string
-        upstream_path = f"{upstream_path}?{qs}"
+        # Strip the token param — it's consumed here and must not reach chat-api
+        qs = "&".join(p for p in qs.split("&") if not p.startswith("token="))
+        if qs:
+            upstream_path = f"{upstream_path}?{qs}"
     await proxy_websocket(websocket, upstream_path, sub=sub)

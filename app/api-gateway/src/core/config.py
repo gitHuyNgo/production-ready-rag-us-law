@@ -5,20 +5,12 @@ Load from .env in this service dir (app/api-gateway/.env).
 import os
 from typing import List
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _env_file() -> str:
     return os.getenv("APP_ENV_FILE", ".env")
-
-
-def _load_pem(content: str, path: str) -> str:
-    if path and os.path.isfile(path):
-        with open(path, "r", encoding="utf-8") as f:
-            return f.read()
-    if content:
-        return content.replace("\\n", "\n")
-    return ""
 
 
 class Settings(BaseSettings):
@@ -30,7 +22,7 @@ class Settings(BaseSettings):
     # JWT verification (RS256: public key must match auth-api's key pair)
     JWT_ALGORITHM: str = "RS256"
     JWT_PUBLIC_KEY: str = ""
-    JWT_PUBLIC_KEY_PATH: str = ""
+    JWT_PUBLIC_KEY_PATH: str = "public.pem"
 
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
@@ -45,9 +37,20 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @model_validator(mode="after")
+    def _load_public_key(self) -> "Settings":
+        """Resolve JWT_PUBLIC_KEY once at startup from file or inline string."""
+        if not self.JWT_PUBLIC_KEY and self.JWT_PUBLIC_KEY_PATH:
+            if os.path.isfile(self.JWT_PUBLIC_KEY_PATH):
+                with open(self.JWT_PUBLIC_KEY_PATH, "r", encoding="utf-8") as f:
+                    self.JWT_PUBLIC_KEY = f.read()
+        elif self.JWT_PUBLIC_KEY:
+            self.JWT_PUBLIC_KEY = self.JWT_PUBLIC_KEY.replace("\\n", "\n")
+        return self
+
 
 settings = Settings()
 
 
 def get_jwt_public_key() -> str:
-    return _load_pem(settings.JWT_PUBLIC_KEY, settings.JWT_PUBLIC_KEY_PATH)
+    return settings.JWT_PUBLIC_KEY
