@@ -39,7 +39,7 @@ async def list_sessions(
             prefix = f"{x_user_id}:"
             session_ids = [sid[len(prefix):] for sid in all_ids if sid.startswith(prefix)]
         else:
-            session_ids = [sid for sid in all_ids if ":" not in sid]
+            session_ids = []
         return {"session_ids": session_ids}
     except Exception:
         return {"session_ids": []}
