@@ -137,6 +137,12 @@ async def proxy_profiles(request: Request, path: str):
 async def proxy_chat_http(request: Request, path: str):
     token = _get_bearer(request)
     sub = verify_token(token) if token else None
+    if not sub:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"detail": "Could not validate credentials"},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     full_path = f"/chat/{path}" if path else "/chat"
     client = request.app.state.http_client
     return await proxy_http(client, settings.CHAT_API_URL, request, full_path, sub=sub)
@@ -151,6 +157,9 @@ async def proxy_chat_websocket(websocket: WebSocket):
     if token.lower().startswith("bearer "):
         token = token[7:].strip()
     sub = verify_token(token) if token else None
+    if not sub:
+        await websocket.close(code=1008, reason="Unauthorized")
+        return
     base = settings.CHAT_API_URL.replace("http://", "ws://").replace("https://", "wss://")
     upstream_path = f"{base.rstrip('/')}/chat/"
     query_string = websocket.scope.get("query_string")
