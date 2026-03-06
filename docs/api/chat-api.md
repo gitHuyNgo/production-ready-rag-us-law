@@ -16,7 +16,7 @@ The Chat API provides RAG-based Q&A and conversational chat over US law document
 
 One-shot RAG query. Sends a question and receives a complete text response.
 
-**Auth:** Optional (if provided, chat memory is associated with the user)
+**Auth:** Bearer token required. Rejected with `401` by the gateway if no valid token is provided.
 
 **Request:**
 
@@ -26,12 +26,17 @@ One-shot RAG query. Sends a question and receives a complete text response.
 }
 ```
 
+**Required headers:**
+
+| Header | Description |
+| --- | --- |
+| `Authorization` | `Bearer <token>` — required, verified by gateway |
+
 **Optional headers:**
 
 | Header | Description |
 | --- | --- |
-| `X-Session-Id` | Session identifier for chat memory. If provided, conversation history is loaded as context and the exchange is appended after the response. |
-| `Authorization` | `Bearer <token>` — optional, forwarded by gateway |
+| `X-Session-Id` | Session identifier for chat memory. If provided, the exchange is stored under `<user_id>:<session_id>` in Cassandra, isolating history per user. Defaults to `<user_id>:default` if omitted. |
 
 **Response (200):**
 
@@ -44,12 +49,13 @@ One-shot RAG query. Sends a question and receives a complete text response.
 **Internal flow (full RAG pipeline):**
 
 ```
-Client → Gateway (/chat/, optional JWT check)
+Client → Gateway (/chat/, JWT required → 401 if missing/invalid)
   → chat-api POST /chat/
     → chat_router receives request
+    → resolves scoped session: "<user_id>:<session_id>" (or "<user_id>:default")
 
     Step 1: Load chat history (if session_id provided)
-      → chat_memory.get_recent_messages(session_id, limit=20)
+      → chat_memory.get_recent_messages("<user_id>:<session_id>", limit=20)
       → returns List[ChatMessageRecord] for conversation context
 
     Step 2: Check semantic cache
@@ -88,8 +94,8 @@ Client → Gateway (/chat/, optional JWT check)
 
     Step 8: Append to chat memory (if session_id)
       → chat_memory.append_messages([
-          ChatMessageRecord(session_id, timestamp, "user", query),
-          ChatMessageRecord(session_id, timestamp, "assistant", response),
+          ChatMessageRecord("<user_id>:<session_id>", timestamp, "user", query),
+          ChatMessageRecord("<user_id>:<session_id>", timestamp, "assistant", response),
         ])
 
     → return { "response": response }
@@ -101,7 +107,7 @@ Client → Gateway (/chat/, optional JWT check)
 
 Streaming chat. Client sends JSON messages; server streams tokens in real-time.
 
-**Auth:** Bearer token in `Authorization` header (verified by gateway, forwarded to chat-api)
+**Auth:** Bearer token required. Gateway rejects the connection with WebSocket close code `1008` (Policy Violation) if no valid token is provided.
 
 **Connection flow:**
 
@@ -112,7 +118,8 @@ sequenceDiagram
     participant CA as chat-api
 
     C->>G: WS /chat/?session_id=X<br/>Authorization: Bearer ...
-    G->>G: verify JWT → sub<br/>convert http→ws URL
+    G->>G: verify JWT → sub<br/>if no valid token: close(1008, Unauthorized)
+    G->>G: convert http→ws URL
     G->>CA: WS /chat/<br/>X-User-Id: john_doe, X-Session-Id: X
     CA-->>G: accept
     G-->>C: accept
@@ -137,25 +144,27 @@ The gateway uses a bidirectional WebSocket proxy (`src/proxy/ws_proxy.py`) that 
 
 ### GET `/chat/sessions`
 
-List chat session IDs from the chat memory store.
+List chat session IDs belonging to the authenticated user.
 
-**Auth:** Optional
+**Auth:** Bearer token required. Returns `[]` if no valid token is provided (gateway enforces auth, so unauthenticated requests are rejected before reaching chat-api).
 
 **Response (200):**
 
 ```json
 {
-  "sessions": ["sess_abc123", "sess_def456", "sess_ghi789"]
+  "session_ids": ["sess_abc123", "sess_def456", "sess_ghi789"]
 }
 ```
+
+Sessions are stored internally as `<user_id>:<session_id>` in Cassandra. The prefix is stripped before returning, so the client sees only the bare session labels they originally sent.
 
 ---
 
 ### GET `/chat/sessions/{session_id}/messages`
 
-Get recent messages for a specific chat session.
+Get recent messages for a specific chat session belonging to the authenticated user.
 
-**Auth:** Optional
+**Auth:** Bearer token required. The session is looked up as `<user_id>:<session_id>`, so users can only access their own sessions.
 
 **Response (200):**
 
