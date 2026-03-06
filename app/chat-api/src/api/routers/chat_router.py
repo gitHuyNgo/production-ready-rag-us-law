@@ -10,27 +10,55 @@ from src.dtos.chat_dto import ChatDto
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
+def _scoped_session_id(session_id: str | None, user_id: str | None) -> str:
+    """Prefix session_id with user_id so sessions are isolated per user.
+
+    Anonymous requests (no user_id) use a flat global namespace as before.
+    Authenticated requests use '<user_id>:<session_id>' so two users with the
+    same session label never share history.
+    """
+    base = session_id or "default"
+    if user_id:
+        return f"{user_id}:{base}"
+    return base
+
+
 @router.get("/sessions")
-async def list_sessions(request: Request, limit: int = 50):
-    """List chat session ids (from Cassandra)."""
+async def list_sessions(
+    request: Request,
+    limit: int = 50,
+    x_user_id: str | None = Header(default=None),
+):
+    """List chat session ids (from Cassandra), scoped to the requesting user."""
     chat_memory = getattr(request.app.state, "chat_memory", None)
     if chat_memory is None:
         return {"session_ids": []}
     try:
-        session_ids = chat_memory.list_sessions(limit=min(limit, 100))
+        all_ids = chat_memory.list_sessions(limit=min(limit, 100))
+        if x_user_id:
+            prefix = f"{x_user_id}:"
+            session_ids = [sid[len(prefix):] for sid in all_ids if sid.startswith(prefix)]
+        else:
+            session_ids = [sid for sid in all_ids if ":" not in sid]
         return {"session_ids": session_ids}
     except Exception:
         return {"session_ids": []}
 
 
 @router.get("/sessions/{session_id}/messages")
-async def get_session_messages(request: Request, session_id: str, limit: int = 20):
-    """Get recent messages for a session (from Cassandra)."""
+async def get_session_messages(
+    request: Request,
+    session_id: str,
+    limit: int = 20,
+    x_user_id: str | None = Header(default=None),
+):
+    """Get recent messages for a session (from Cassandra), scoped to the requesting user."""
     chat_memory = getattr(request.app.state, "chat_memory", None)
     if chat_memory is None:
         return {"messages": []}
     try:
-        records = chat_memory.get_context(session_id, limit=min(limit, 100))
+        scoped_id = _scoped_session_id(session_id, x_user_id)
+        records = chat_memory.get_context(scoped_id, limit=min(limit, 100))
         return {
             "messages": [
                 {"role": r.role, "content": r.content, "timestamp": r.timestamp.isoformat()}
@@ -53,6 +81,7 @@ async def chat_post(
     request: Request,
     dto: ChatDto,
     x_session_id: str | None = Header(default=None),
+    x_user_id: str | None = Header(default=None),
 ):
     """Handle chat via POST: same contract as WebSocket, single response."""
     db = request.app.state.db
@@ -74,7 +103,7 @@ async def chat_post(
     )
 
     # Persist exchange to chat memory if available
-    session_id = x_session_id or "default"
+    session_id = _scoped_session_id(x_session_id, x_user_id)
     chat_memory = getattr(request.app.state, "chat_memory", None)
     if chat_memory is not None:
         try:
@@ -114,11 +143,12 @@ async def chat_websocket(websocket: WebSocket):
     semantic_cache = getattr(websocket.app.state, "semantic_cache", None)
     get_query_embedding = _get_query_embedding_fn(getattr(websocket.app.state, "embed_model", None))
 
-    session_id = (
+    raw_session_id = (
         websocket.headers.get("x-session-id")
         or websocket.query_params.get("session_id")
-        or "default"
     )
+    user_id = websocket.headers.get("x-user-id")
+    session_id = _scoped_session_id(raw_session_id, user_id)
     chat_memory = getattr(websocket.app.state, "chat_memory", None)
 
     try:
