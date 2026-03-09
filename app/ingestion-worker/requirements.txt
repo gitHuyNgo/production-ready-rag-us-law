@@ -6,6 +6,9 @@ llama-index
 docling
 weaviate-client
 redis
+lxml
+llama-index-graph-stores-neo4j
+neo4j
 
 # Testing
 pytest>=7.4.0
